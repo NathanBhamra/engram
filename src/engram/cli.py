@@ -45,6 +45,7 @@ from engram.commands import (  # noqa: E402  (ordered after click group definiti
     rebuild,
     recall,
     store,
+    usage,
     verify,
     view,
 )
@@ -57,6 +58,7 @@ main.add_command(rebuild.rebuild)
 main.add_command(view.view)
 main.add_command(audit.audit)
 main.add_command(doctor.doctor)
+main.add_command(usage.usage)
 
 
 if __name__ == "__main__":
