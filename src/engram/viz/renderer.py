@@ -10,6 +10,7 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from engram.version import __version__
 from engram.viz import exporter, metrics
 from engram.viz import theme as theme_mod
 
@@ -44,6 +45,7 @@ def render(
         conn, theme=theme, include_quarantined=include_quarantined
     )
     stats = metrics.graph_stats(conn)
+    tags = metrics.tag_counts(conn, limit=20)
 
     env = Environment(
         loader=PackageLoader("engram.viz", "templates"),
@@ -61,6 +63,9 @@ def render(
         initial_mode=theme.name,
         graph_json=json.dumps(payload, default=str),
         sidebar_stats=stats,
+        tag_counts=tags,
+        engram_version=__version__,
+        engram_repo_url="https://github.com/NathanBhamra/engram",
         vis_network_js=vis_network_js,
         vis_network_cdn=(
             "https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"

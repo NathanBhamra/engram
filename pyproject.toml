@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engram"
-version = "0.1.0"
+version = "0.3.0.dev0"
 description = "A self-sufficient, local-first, deterministic memory layer for AI sessions, with a force-directed knowledge graph viewer."
 readme = "README.md"
 license = { text = "MIT" }

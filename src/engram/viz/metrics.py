@@ -88,3 +88,29 @@ def graph_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "AND (julianday('now') - julianday(verified_on)) > ttl_days"
     ).fetchone()["n"]
     return {"nodes": nodes, "edges": edges, "clusters": clusters, "stale": stale}
+
+
+def tag_counts(conn: sqlite3.Connection, limit: int = 20) -> list[dict[str, Any]]:
+    """Return the top ``limit`` tags by node-count for the active (non-quarantined) graph.
+
+    Tags are stored as a comma-separated string on each node row. We split in
+    SQL by recursively peeling off the first comma-delimited segment.
+    """
+    rows = conn.execute(
+        "SELECT tags FROM nodes WHERE quarantined = 0 AND tags IS NOT NULL AND tags <> ''"
+    ).fetchall()
+    from collections import Counter
+
+    counter: Counter[str] = Counter()
+    for row in rows:
+        tags = row["tags"] if isinstance(row, sqlite3.Row) else row[0]
+        if not tags:
+            continue
+        for tag in str(tags).split(","):
+            t = tag.strip()
+            if t:
+                counter[t] += 1
+    return [
+        {"tag": tag, "count": count}
+        for tag, count in counter.most_common(limit)
+    ]

@@ -12,9 +12,14 @@ from engram.cli import main
 
 
 def test_version_constant_is_semver() -> None:
-    parts = __version__.split(".")
-    assert len(parts) == 3
-    assert all(p.isdigit() for p in parts)
+    # Accept "MAJOR.MINOR.PATCH" plus an optional PEP 440 dev/pre/post suffix
+    # (e.g. "0.3.0.dev0", "1.0.0rc1", "0.2.0.post1").
+    import re
+
+    assert re.fullmatch(
+        r"\d+\.\d+\.\d+(\.(dev|post)\d+|(a|b|rc)\d+)?",
+        __version__,
+    ), f"Unexpected version string: {__version__!r}"
 
 
 def test_cli_version_flag_prints_version() -> None:
