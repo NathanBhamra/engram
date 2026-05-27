@@ -40,6 +40,7 @@ def main(ctx: click.Context, config_path: str | None) -> None:
 
 from engram.commands import (  # noqa: E402  (ordered after click group definition)
     audit,
+    autostore,
     doctor,
     list_stale,
     rebuild,
@@ -51,6 +52,7 @@ from engram.commands import (  # noqa: E402  (ordered after click group definiti
 )
 
 main.add_command(store.store)
+main.add_command(autostore.autostore)
 main.add_command(recall.recall)
 main.add_command(verify.verify)
 main.add_command(list_stale.list_stale)
