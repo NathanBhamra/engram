@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-27
+
+### Added
+
+- **`engram usage` command** — reports nodes/edges, type breakdown, DB size,
+  estimated tokens stored (~4 chars/token heuristic), and notional cost to
+  re-derive the corpus body from chat at configurable per-million pricing.
+  Supports `--json` for scripted consumption and `--input-price` /
+  `--output-price` overrides so the figures stay accurate as model pricing
+  changes. Makes the value of dogfooding Engram quantitatively visible.
+
+### Fixed
+
+- **Viewer version drift** — `viz.html` / `viz-3d.html` are static snapshots
+  whose embedded version stamp only updates when `engram view` is re-run.
+  Documented that re-rendering is part of the release flow; both rendered
+  artifacts are now refreshed alongside any version bump. (No code change
+  required — discipline + release-checklist update.)
+
 ## [0.4.0] - 2026-05-27
 
 ### Added
@@ -84,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback). Total now 61 passing.
 - **scipy** added to dependencies (required by NetworkX's PageRank).
 
-[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/NathanBhamra/engram/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/NathanBhamra/engram/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/NathanBhamra/engram/releases/tag/v0.3.0
