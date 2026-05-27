@@ -1,0 +1,19 @@
+{
+  "name": "engram-personal",
+  "description": "Nathan's personal Engram memory layer — universal recall+store skill that runs on every prompt, plus Semon the archivist agent for explicit knowledge-tree management.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Nathan Bhamra",
+    "email": "nathansinghbhamra@outlook.com"
+  },
+  "repository": "https://github.com/NathanBhamra/engram",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "knowledge-graph",
+    "engram",
+    "recall",
+    "store",
+    "deterministic"
+  ]
+}

@@ -1,5 +1,9 @@
 # Engram
 
+<p align="center">
+  <img src="docs/assets/hero-dark.png" alt="Engram knowledge graph viewer" width="900">
+</p>
+
 > *"The engram is the enduring change which the stimulus leaves behind in
 > the organism — the trace that makes recall possible."*
 > — Richard Semon, *Die Mneme*, 1904 (paraphrased)
@@ -25,7 +29,7 @@ visualisation. No subscriptions, no cloud calls, no LLM in the storage path.
 Requires Python 3.11+.
 
 ```powershell
-git clone https://github.com/engram/engram.git
+git clone https://github.com/NathanBhamra/engram.git
 cd engram
 .\scripts\bootstrap.ps1
 ```
@@ -46,6 +50,24 @@ engram recall "activity investigation section tag"
 engram view --open
 ```
 
+## The viewer
+
+Engram ships with a static HTML force-directed graph viewer powered by
+[vis-network]. It's a single self-contained file — drag it into any browser.
+
+- **iOS-grade palette** in both light and dark mode (runtime toggle).
+- **Floating sidebar** that collapses to an engraved "Engram" watermark to
+  maximise graph real estate.
+- **Pinned multi-card details** — click a node to inspect, pin to keep it
+  visible while exploring, click empty space to dismiss unpinned cards.
+- **Search, type/connection filters, cluster + stale counts** in the sidebar.
+
+[vis-network]: https://github.com/visjs/vis-network
+
+```powershell
+engram view --out viz.html --open
+```
+
 ## Documentation
 
 The full documentation lives in [`docs/`](docs/) and is built with
@@ -58,13 +80,13 @@ The full documentation lives in [`docs/`](docs/) and is built with
 Key entry points:
 
 - [Why deterministic?](docs/concepts/why-deterministic.md)
-- [Concepts: nodes and edges](docs/concepts/nodes-and-edges.md)
-- [CLI reference](docs/usage/cli-reference.md)
 - [Architecture](ARCHITECTURE.md)
+- [Design decisions](docs/design/decisions.md)
 
 ## Status
 
-Alpha. See [`CHANGELOG.md`](CHANGELOG.md) for what's shipped.
+Alpha. Phase 1 (CLI) and Phase 2 (viewer) shipped. Phase 3 (auto-store via
+agent hooks) in progress. See [`CHANGELOG.md`](CHANGELOG.md) for what's shipped.
 
 ## Licence
 
