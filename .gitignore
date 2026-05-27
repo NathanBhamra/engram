@@ -1,0 +1,35 @@
+# ENGRAM working files
+.venv/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+notes/
+viz.html
+/viz/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# mkdocs
+site/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp

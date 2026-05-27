@@ -1,0 +1,86 @@
+# ENGRAM configuration — copy to ENGRAM.toml and edit.
+# All keys are optional; defaults shown below.
+
+[paths]
+# Where ENGRAM stores the SQLite index. Relative paths are resolved against
+# the ENGRAM.toml file's directory.
+db = "ENGRAM.db"
+
+# Where canonical markdown notes are written. One file per node.
+notes_dir = "notes"
+
+# Where the graph viewer's output HTML is written.
+viz_out = "viz.html"
+
+[redaction]
+# Patterns to strip before chunking. Order matters; rules apply in order.
+# ENGRAM ships built-in rules for Windows user paths, JWT-shaped tokens,
+# and common ID formats. List additional regexes here.
+extra_patterns = [
+    # 'CUSTOM-[A-Z0-9]{8}',
+]
+
+# If true, redaction failures abort the store. If false, they downgrade
+# storage with a warning. Default: true (fail-closed).
+fail_closed = true
+
+[worthiness]
+# Minimum number of "signal" features a chunk must carry to be stored
+# without an explicit !store directive.
+min_signals = 1
+
+# Words below which a chunk is dismissed regardless of signals.
+min_word_count = 8
+
+[stale]
+# Default time-to-live (days) per node type.
+ttl_fact = 14
+ttl_pattern = 180
+ttl_decision = 365
+ttl_reference = 365
+
+# How much to multiply BM25 rank by for past-TTL nodes (0.5 = halve).
+past_ttl_rank_multiplier = 0.5
+
+# Quarantined nodes are excluded from recall by default; user can include
+# with --include-stale.
+auto_quarantine_after_days = 30  # past TTL
+
+[recall]
+# Maximum chunks returned by a single recall.
+top_n = 3
+
+# Maximum total tokens budget across returned chunks (heuristic at 4 chars/token).
+token_budget = 1000
+
+# Whether to expand the query using the alias table.
+expand_aliases = true
+
+[chunker]
+# Target chunk size (characters) before falling back to recursive splitter.
+target_chunk_size = 1200
+
+# Overlap between chunks (characters).
+chunk_overlap = 100
+
+[viz]
+# Theme: "dark" or "light".
+theme = "dark"
+
+# Force-simulation tuning passed to vis-network.
+alpha_decay = 0.05
+velocity_decay = 0.4
+many_body_strength = -300
+
+# Edge colour by type. Hex strings.
+[viz.edge_colours]
+wiki-link = "#88c0d0"
+co-recall = "#a3be8c"
+shared-tag = "#ebcb8b"
+manual    = "#bf616a"
+
+[embeddings]
+# Phase 2. Gated on corporate-proxy connectivity test.
+enabled = false
+model = "BAAI/bge-small-en-v1.5"
+rrf_k = 60

@@ -1,0 +1,92 @@
+site_name: Engram
+site_description: A self-sufficient, local-first, deterministic AI memory layer with a knowledge graph viewer.
+repo_url: https://github.com/engram/engram
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            heading_level: 2
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Install: getting-started/install.md
+      - First store: getting-started/first-store.md
+      - First recall: getting-started/first-recall.md
+      - Viewing the graph: getting-started/viewing-the-graph.md
+  - Concepts:
+      - Why deterministic?: concepts/why-deterministic.md
+      - Nodes and edges: concepts/nodes-and-edges.md
+      - Chunking: concepts/chunking.md
+      - Recall ranking: concepts/recall-ranking.md
+      - Provenance: concepts/provenance.md
+      - Staleness: concepts/staleness.md
+  - Usage:
+      - CLI reference: usage/cli-reference.md
+      - Configuration: usage/configuration.md
+      - Aliases: usage/aliases.md
+      - Visualisation: usage/visualisation.md
+  - Advanced:
+      - AI integration: advanced/ai-integration.md
+      - Embeddings: advanced/embeddings.md
+      - Extending recall: advanced/extending-recall.md
+      - Theming the viewer: advanced/theming-the-viewer.md
+  - Reference:
+      - Schema: reference/schema.md
+      - JSON format: reference/json-format.md
+  - Design:
+      - Decisions: design/decisions.md
+      - Prior art: design/prior-art.md

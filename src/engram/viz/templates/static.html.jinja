@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: {{ theme_dark.background }};
+    --fg: {{ theme_dark.foreground }};
+    --panel: {{ theme_dark.sidebar_bg }};
+    --hairline: rgba(255,255,255,0.08);
+    --hairline-strong: rgba(255,255,255,0.14);
+    --muted: rgba(235,235,245,0.55);
+    --muted-2: rgba(235,235,245,0.32);
+    --surface: rgba(255,255,255,0.04);
+    --surface-2: rgba(255,255,255,0.06);
+    --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    --tooltip-bg: rgba(28,28,30,0.92);
+    --node-bg: rgba(28,28,30,0.92);
+    --edge-default: rgba(235,235,245,0.18);
+    --edge-hover: rgba(235,235,245,0.45);
+    --graph-bg: rgba(0,0,0,0.25);
+    --accent: #5e5ce6;
+    --danger: #ff375f;
+    --warn: #ff9f0a;
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+  body.theme-light {
+    --bg: {{ theme_light.background }};
+    --fg: {{ theme_light.foreground }};
+    --panel: {{ theme_light.sidebar_bg }};
+    --hairline: rgba(0,0,0,0.08);
+    --hairline-strong: rgba(0,0,0,0.14);
+    --muted: rgba(60,60,67,0.60);
+    --muted-2: rgba(60,60,67,0.36);
+    --surface: rgba(0,0,0,0.03);
+    --surface-2: rgba(0,0,0,0.05);
+    --shadow: 0 10px 30px rgba(0,0,0,0.10);
+    --tooltip-bg: rgba(255,255,255,0.96);
+    --node-bg: rgba(255,255,255,0.96);
+    --edge-default: rgba(60,60,67,0.20);
+    --edge-hover: rgba(60,60,67,0.45);
+    --graph-bg: rgba(255,255,255,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss03';
+    font-size: 14px;
+    color: var(--fg);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.011em;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(60% 50% at 50% 30%, rgba(10,132,255,0.10), transparent 70%),
+      radial-gradient(40% 40% at 80% 80%, rgba(48,209,88,0.06), transparent 70%);
+  }
+
+  #app {
+    position: relative; z-index: 1;
+    width: 100vw; height: 100vh;
+    padding: 14px;
+    box-sizing: border-box;
+  }
+
+  /* Engraved "ENGRAM" watermark behind the graph — visible when sidebar
+     is collapsed. Click to bring the sidebar back. */
+  #engram-watermark {
+    position: fixed; left: 22px; top: 18px;
+    z-index: 2;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: transparent;
+    -webkit-text-stroke: 0.6px var(--hairline-strong);
+    text-shadow:
+      0 1px 0 var(--surface),
+      0 -1px 0 rgba(0,0,0,0.4);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .35s ease, transform .35s ease, color .15s, -webkit-text-stroke-color .15s;
+    user-select: none;
+    pointer-events: none;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  #engram-watermark::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); opacity: 0.6;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  body.theme-light #engram-watermark {
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7), 0 -1px 0 rgba(0,0,0,0.06);
+  }
+  body.sidebar-collapsed #engram-watermark {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  #engram-watermark:hover {
+    color: color-mix(in srgb, var(--accent) 18%, transparent);
+    -webkit-text-stroke-color: var(--accent);
+  }
+
+  .panel {
+    background: var(--panel);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 18px 18px;
+    box-shadow: var(--shadow);
+  }
+  .panel::-webkit-scrollbar { width: 8px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 8px; }
+
+  /* Sidebar: floating top-left, collapses out of view */
+  #sidebar {
+    position: fixed; left: 14px; top: 14px;
+    width: 280px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    z-index: 4;
+    transition: transform .35s cubic-bezier(.4,.0,.2,1), opacity .25s ease;
+  }
+  body.sidebar-collapsed #sidebar {
+    transform: translateX(calc(-100% - 24px));
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar-collapse {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    color: var(--fg); cursor: pointer; padding: 0;
+    margin-left: 6px;
+    transition: background .15s, border-color .15s;
+  }
+  .sidebar-collapse:hover { background: var(--surface); border-color: var(--hairline-strong); }
+  .sidebar-collapse svg { width: 12px; height: 12px; }
+
+  #graph-wrap {
+    position: absolute;
+    inset: 14px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    background: var(--graph-bg);
+    z-index: 1;
+  }
+  #graph { width: 100%; height: 100%; }
+
+  /* Typography */
+  .brand { display: flex; align-items: center; gap: 10px; margin: 2px 0 18px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+  .section-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 22px 0 10px;
+  }
+  .section-label:first-of-type { margin-top: 4px; }
+
+  /* Stats grid */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-value { font-size: 22px; font-weight: 600; line-height: 1.1; margin-top: 4px;
+                font-family: 'Inter', system-ui, sans-serif;
+                font-feature-settings: "tnum", "ss01"; font-variant-numeric: tabular-nums;
+                letter-spacing: -0.02em; }
+  .stat.warn .stat-value { color: var(--warn); }
+
+  /* Search */
+  .search-wrap { position: relative; }
+  .search-wrap::before {
+    content: ''; position: absolute; left: 12px; top: 50%; width: 12px; height: 12px;
+    transform: translateY(-50%);
+    background: var(--muted);
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='11' cy='11' r='7' fill='none' stroke='black' stroke-width='2'/><line x1='16.5' y1='16.5' x2='21' y2='21' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='11' cy='11' r='7' fill='none' stroke='black' stroke-width='2'/><line x1='16.5' y1='16.5' x2='21' y2='21' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>") center/contain no-repeat;
+  }
+  #search {
+    width: 100%; padding: 8px 12px 8px 32px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    color: var(--fg);
+    font: inherit; font-size: 13px;
+    outline: none; transition: border-color .15s, background .15s;
+  }
+  #search::placeholder { color: var(--muted-2); }
+  #search:focus { border-color: var(--accent); background: var(--surface-2); }
+
+  /* Legend */
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1.8; color: var(--fg); }
+  .legend-item .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px var(--surface); }
+  .legend-item.edge .swatch { border-radius: 2px; width: 14px; height: 2px; box-shadow: none; }
+
+  /* Detail card stack: floating top-right, auto-height cards */
+  #detail-stack {
+    position: fixed; right: 14px; top: 14px;
+    width: 360px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 12px;
+    z-index: 3;
+    pointer-events: none; /* allow graph clicks through gaps */
+  }
+  #detail-stack::-webkit-scrollbar { width: 0; }
+
+  .detail-card {
+    pointer-events: auto;
+    background: var(--panel);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 16px 18px 18px;
+    box-shadow: var(--shadow);
+    transform-origin: top right;
+    animation: card-in .25s cubic-bezier(.4,.0,.2,1);
+  }
+  .detail-card.leaving {
+    animation: card-out .18s cubic-bezier(.4,.0,.2,1) forwards;
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateX(20px) scale(.96); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  @keyframes card-out {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to   { opacity: 0; transform: translateX(16px) scale(.96); }
+  }
+
+  .detail-card .card-head {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .detail-card .type-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    margin-top: 7px; flex: none;
+  }
+  .detail-card .title {
+    flex: 1;
+    font-weight: 600; font-size: 16px; line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--fg);
+    word-break: break-word;
+  }
+  .card-actions { display: flex; gap: 4px; flex: none; }
+  .card-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    cursor: pointer; padding: 0;
+    transition: background .15s, color .15s, border-color .15s, transform .2s;
+  }
+  .card-btn:hover { background: var(--surface-2); color: var(--fg); border-color: var(--hairline); }
+  .card-btn svg { width: 13px; height: 13px; }
+  .card-btn.pin.active { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .card-btn.pin.active svg { transform: rotate(-30deg); }
+
+  .detail-card .body {
+    white-space: pre-wrap;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin: 10px 0 12px;
+    font-size: 13.5px; line-height: 1.55;
+    color: var(--fg);
+  }
+  .detail-card .meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 16px; font-size: 12px; }
+  .detail-card .meta-key { color: var(--muted); text-transform: lowercase; }
+  .detail-card .meta-val { color: var(--fg); font-family: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
+  .detail-card .tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .detail-card .tag {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 999px; font-size: 11.5px; font-weight: 500;
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+    color: var(--fg);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  body:not(.theme-light) .detail-card .tag { color: #ffffff; }
+  .detail-card .stale-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    background: color-mix(in srgb, var(--warn) 20%, transparent);
+    color: var(--warn);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    margin-bottom: 10px;
+  }
+
+  /* Browser find / text selection contrast */
+  ::selection { background: color-mix(in srgb, var(--accent) 55%, transparent); color: #ffffff; }
+  ::-moz-selection { background: color-mix(in srgb, var(--accent) 55%, transparent); color: #ffffff; }
+
+  /* vis tooltip override */
+  .vis-tooltip {
+    background: var(--tooltip-bg) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--hairline-strong) !important;
+    border-radius: 10px !important;
+    color: var(--fg) !important;
+    font-family: inherit !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    box-shadow: var(--shadow) !important;
+    white-space: pre-line !important;
+  }
+
+  /* Hide vis-network navigation buttons (clashes with iOS aesthetic) */
+  .vis-navigation { display: none !important; }
+
+  /* Theme toggle button */
+  .brand-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 2px 0 18px;
+  }
+  .brand-row .brand { margin: 0; }
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--fg);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .2s;
+    padding: 0;
+  }
+  .theme-toggle:hover { background: var(--surface); border-color: var(--hairline-strong); transform: rotate(15deg); }
+  .theme-toggle svg { width: 15px; height: 15px; }
+  .theme-toggle .sun { display: none; }
+  body.theme-light .theme-toggle .sun { display: block; }
+  body.theme-light .theme-toggle .moon { display: none; }
+
+  footer {
+    position: absolute; right: 24px; bottom: 22px;
+    font-size: 11px; color: var(--muted-2);
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+<div id="engram-watermark" title="Show panel">Engram</div>
+<div id="app">
+  <aside class="panel" id="sidebar">
+    <div class="brand-row">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">Engram</span>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+          <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor"/></svg>
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></svg>
+        </button>
+        <button class="sidebar-collapse" id="sidebar-collapse" title="Hide panel" aria-label="Hide sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Nodes</div><div class="stat-value">{{ sidebar_stats.nodes }}</div></div>
+      <div class="stat"><div class="stat-label">Edges</div><div class="stat-value">{{ sidebar_stats.edges }}</div></div>
+      <div class="stat"><div class="stat-label">Clusters</div><div class="stat-value">{{ sidebar_stats.clusters }}</div></div>
+      <div class="stat warn"><div class="stat-label">Stale</div><div class="stat-value">{{ sidebar_stats.stale }}</div></div>
+    </div>
+
+    <div class="section-label">Search</div>
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Filter by title or tag" autocomplete="off" />
+    </div>
+
+    <div class="section-label">Types</div>
+    {% for kind, colour in theme.node_colours.items() %}
+    <div class="legend-item"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</div>
+    {% endfor %}
+    <div class="legend-item"><span class="swatch" style="background: {{ theme.stale_colour }}"></span>stale</div>
+
+    <div class="section-label">Connections</div>
+    {% for kind, colour in theme.edge_colours.items() %}
+    <div class="legend-item edge"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</div>
+    {% endfor %}
+  </aside>
+
+  <div id="graph-wrap">
+    <div id="graph"></div>
+    <footer>{{ sidebar_stats.nodes }} nodes · {{ sidebar_stats.edges }} edges</footer>
+  </div>
+
+  <div id="detail-stack"></div>
+</div>
+
+{% if vis_network_js %}
+<script>{{ vis_network_js | safe }}</script>
+{% else %}
+<script src="{{ vis_network_cdn }}"></script>
+{% endif %}
+
+<script>
+  const PALETTES = {
+    dark: {
+      nodes: {{ theme_dark.node_colours | tojson }},
+      edges: {{ theme_dark.edge_colours | tojson }},
+      stale: "{{ theme_dark.stale_colour }}",
+      quarantine: "{{ theme_dark.quarantine_colour }}",
+      nodeBg: "rgba(28,28,30,0.92)",
+      edgeDefault: "rgba(235,235,245,0.18)",
+      edgeHover: "rgba(235,235,245,0.45)",
+      fontColor: "#ffffff",
+      highlightTextColor: "#ffffff",
+    },
+    light: {
+      nodes: {{ theme_light.node_colours | tojson }},
+      edges: {{ theme_light.edge_colours | tojson }},
+      stale: "{{ theme_light.stale_colour }}",
+      quarantine: "{{ theme_light.quarantine_colour }}",
+      nodeBg: "rgba(255,255,255,0.96)",
+      edgeDefault: "rgba(60,60,67,0.20)",
+      edgeHover: "rgba(60,60,67,0.45)",
+      fontColor: "#1c1c1e",
+      highlightTextColor: "#ffffff",
+    },
+  };
+  let currentMode = (function(){
+    try { return localStorage.getItem('engram-theme') || '{{ initial_mode }}'; }
+    catch(e) { return '{{ initial_mode }}'; }
+  })();
+  let NODE_COLOURS = PALETTES[currentMode].nodes;
+  const data = {{ graph_json | safe }};
+
+  // Wait for Inter to finish loading before vis-network measures node sizes,
+  // otherwise the cards size to the fallback font and text drifts off-centre
+  // until a hover triggers a re-measure.
+  const fontsReady = (document.fonts && document.fonts.ready)
+    ? document.fonts.ready
+    : Promise.resolve();
+
+  fontsReady.then(initGraph).then(() => {
+    // Sync node/edge colours to persisted theme if it differs from initial render theme.
+    if (currentMode !== '{{ initial_mode }}') applyTheme(currentMode);
+  });
+
+  let _nodes = null, _edges = null, _network = null;
+
+  function initGraph() {
+    const container = document.getElementById('graph');
+    const nodes = new vis.DataSet(data.nodes);
+    const edges = new vis.DataSet(data.edges);
+    _nodes = nodes; _edges = edges;
+
+  const options = {
+    nodes: {
+      shape: 'box',
+      shapeProperties: { borderRadius: 12 },
+      margin: { top: 12, right: 18, bottom: 12, left: 18 },
+      widthConstraint: { minimum: 90, maximum: 220 },
+      font: {
+        color: PALETTES[currentMode].fontColor,
+        size: 13,
+        face: 'Inter, -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+        align: 'center',
+        bold: { color: PALETTES[currentMode].fontColor, size: 13, face: 'Inter, -apple-system, "SF Pro Text", system-ui, sans-serif', vadjust: 0 },
+      },
+      borderWidth: 1,
+      borderWidthSelected: 2,
+      shadow: { enabled: true, size: 16, x: 0, y: 4, color: 'rgba(0,0,0,0.45)' },
+    },
+    edges: {
+      smooth: { type: 'continuous', roundness: 0.35 },
+      arrows: { to: { enabled: false } },
+      width: 1,
+      selectionWidth: w => w + 1.2,
+      color: { color: PALETTES[currentMode].edgeDefault, highlight: PALETTES[currentMode].nodes.fact || '#5e5ce6', hover: PALETTES[currentMode].edgeHover },
+      hoverWidth: 0.5,
+    },
+    physics: {
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: {
+        gravitationalConstant: -55,
+        centralGravity: 0.01,
+        springLength: 180,
+        springConstant: 0.06,
+        damping: 0.85,
+        avoidOverlap: 1,
+      },
+      maxVelocity: 20,
+      minVelocity: 0.3,
+      timestep: 0.35,
+      stabilization: { iterations: 800, updateInterval: 25, fit: true },
+    },
+    interaction: {
+      hover: true, tooltipDelay: 250, multiselect: false,
+      navigationButtons: false, keyboard: false, zoomSpeed: 0.6,
+      dragNodes: true, dragView: true,
+    },
+    layout: { improvedLayout: true, randomSeed: 42 },
+  };
+
+  // Node colour is already emitted by the exporter as a full color object
+  // (background + border + highlight + hover all set to the dark-with-accent
+  // base). Nothing to override client-side — guarantees drag/click never
+  // changes the appearance.
+
+  const network = new vis.Network(container, { nodes, edges }, options);
+  _network = network;
+
+  // --- Search: dim non-matches instead of hiding, so layout is stable
+  //     and matches stay readable.
+  function applySearch(q) {
+    q = (q || '').toLowerCase().trim();
+    const pal = PALETTES[currentMode];
+    nodes.forEach(n => {
+      const accent = pal.nodes[n.engram.type] || pal.nodes.fact;
+      const match = !q || (
+        n.label + ' ' + (n.engram.tags || []).join(' ') + ' ' + (n.engram.body || '')
+      ).toLowerCase().includes(q);
+      const dimColor = currentMode === 'dark' ? 'rgba(255,255,255,0.35)' : 'rgba(60,60,67,0.45)';
+      nodes.update({
+        id: n.id,
+        opacity: q ? (match ? 1.0 : 0.12) : 1.0,
+        font: { color: q && !match ? dimColor : pal.fontColor,
+                size: 13, face: 'Inter, -apple-system, "SF Pro Text", system-ui, sans-serif' },
+        color: {
+          background: pal.nodeBg,
+          border: accent,
+          highlight: { background: accent, border: pal.highlightTextColor },
+          hover: { background: accent, border: pal.highlightTextColor },
+        },
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ---- Detail card stack ----------------------------------------------
+  // Selecting a node opens a card top-right. If the top (most-recent) card
+  // is unpinned, the new one replaces it. Pinned cards stay until explicitly
+  // closed. Cards animate in/out.
+  const detailStack = document.getElementById('detail-stack');
+
+  function buildCardHtml(e, accent, nodeId) {
+    const tags = (e.tags || []).filter(t => t).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    const stale = e.past_ttl ? '<div class="stale-badge">STALE</div>' : '';
+    const bodyHtml = (e.body || '').trim()
+      ? `<div class="body">${escapeHtml(e.body)}</div>`
+      : `<div class="body" style="color:var(--muted-2); font-style:italic;">No body stored.</div>`;
+    return (
+      `<div class="card-head">` +
+        `<div class="type-dot" style="background:${accent}"></div>` +
+        `<div class="title">${escapeHtml(e.title)}</div>` +
+        `<div class="card-actions">` +
+          `<button class="card-btn pin" data-action="pin" title="Pin card" aria-label="Pin card">` +
+            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-2.5V9a3 3 0 0 0-3-3h-5a3 3 0 0 0-3 3v5.5L5 17z"/></svg>` +
+          `</button>` +
+          `<button class="card-btn close" data-action="close" title="Close" aria-label="Close">` +
+            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>` +
+          `</button>` +
+        `</div>` +
+      `</div>` +
+      stale +
+      bodyHtml +
+      `<div class="meta-grid">` +
+        `<div class="meta-key">type</div><div class="meta-val">${e.type}</div>` +
+        `<div class="meta-key">cluster</div><div class="meta-val">${e.cluster ?? '–'}</div>` +
+        `<div class="meta-key">degree</div><div class="meta-val">${e.degree}</div>` +
+        `<div class="meta-key">pagerank</div><div class="meta-val">${e.pagerank.toFixed(4)}</div>` +
+        `<div class="meta-key">ttl</div><div class="meta-val">${e.ttl_days} days</div>` +
+        `<div class="meta-key">verified</div><div class="meta-val">${e.verified_on ? new Date(e.verified_on).toLocaleString() : 'unverified'}</div>` +
+      `</div>` +
+      (tags ? `<div class="tags">${tags}</div>` : '')
+    );
+  }
+
+  function closeCard(card) {
+    if (!card || card.classList.contains('leaving')) return;
+    card.classList.add('leaving');
+    setTimeout(() => card.remove(), 180);
+  }
+
+  function openDetailCard(nodeId) {
+    const node = _nodes.get(nodeId);
+    if (!node) return;
+    const e = node.engram;
+    const accent = NODE_COLOURS[e.type] || PALETTES[currentMode].nodes.fact;
+
+    // Replace top unpinned card, if any.
+    const topCard = detailStack.firstElementChild;
+    if (topCard && !topCard.classList.contains('pinned')) {
+      closeCard(topCard);
+    } else if (topCard && topCard.dataset.nodeId === nodeId) {
+      // Already pinned for this node — bail.
+      return;
+    }
+    // Don't open duplicates (pinned card for same node already shown).
+    if (detailStack.querySelector(`.detail-card[data-node-id="${CSS.escape(nodeId)}"]`)) {
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'detail-card';
+    card.dataset.nodeId = nodeId;
+    card.innerHTML = buildCardHtml(e, accent, nodeId);
+    card.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.card-btn');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === 'close') {
+        closeCard(card);
+      } else if (action === 'pin') {
+        const nowPinned = !card.classList.contains('pinned');
+        card.classList.toggle('pinned', nowPinned);
+        btn.classList.toggle('active', nowPinned);
+        btn.title = nowPinned ? 'Unpin card' : 'Pin card';
+      }
+    });
+    detailStack.insertBefore(card, detailStack.firstChild);
+  }
+
+  network.on('selectNode', function (params) {
+    const id = params.nodes[0];
+    if (id != null) openDetailCard(id);
+  });
+  // Click away (empty space): close any unpinned card.
+  function closeUnpinnedCards() {
+    detailStack.querySelectorAll('.detail-card').forEach(c => {
+      if (!c.classList.contains('pinned')) closeCard(c);
+    });
+  }
+  network.on('deselectNode', closeUnpinnedCards);
+  network.on('click', function (params) {
+    if (!params.nodes.length) closeUnpinnedCards();
+  });
+
+  // Search filter
+  const searchInput = document.getElementById('search');
+  searchInput.addEventListener('input', () => applySearch(searchInput.value));
+
+    // After stabilisation: freeze physics. Nothing floats by default.
+    // Only nodes that have been dragged get a *very* slow drift around their
+    // dropped position — gives a subtle "alive" feel for things the user has
+    // touched, while untouched nodes stay rock-steady.
+    network.once('stabilizationIterationsDone', () => {
+      network.redraw();
+      network.setOptions({ physics: { enabled: false } });
+
+      const anchors = {}; // only populated for dragged nodes
+      const dragging = new Set();
+
+      network.on('dragStart', (p) => { p.nodes.forEach(id => dragging.add(id)); });
+      network.on('dragEnd', (p) => {
+        p.nodes.forEach(id => {
+          const pos = network.getPositions([id])[id];
+          anchors[id] = {
+            x: pos.x,
+            y: pos.y,
+            phase: Math.random() * Math.PI * 2,
+            ampX: 1.2 + Math.random() * 0.8,
+            ampY: 1.2 + Math.random() * 0.8,
+            freqX: 0.06 + Math.random() * 0.04,
+            freqY: 0.05 + Math.random() * 0.04,
+          };
+          dragging.delete(id);
+        });
+        // Clear any selection drag created so the node returns to its neutral look.
+        network.unselectAll();
+      });
+
+      const t0 = performance.now();
+      function tick() {
+        const t = (performance.now() - t0) / 1000;
+        const updates = [];
+        for (const id in anchors) {
+          if (dragging.has(id)) continue;
+          const a = anchors[id];
+          updates.push({
+            id,
+            x: a.x + Math.sin(t * a.freqX + a.phase) * a.ampX,
+            y: a.y + Math.cos(t * a.freqY + a.phase * 1.3) * a.ampY,
+          });
+        }
+        if (updates.length) nodes.update(updates);
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  } // end initGraph
+
+  function applyTheme(mode) {
+    currentMode = mode;
+    NODE_COLOURS = PALETTES[mode].nodes;
+    document.body.classList.toggle('theme-light', mode === 'light');
+    try { localStorage.setItem('engram-theme', mode); } catch(e) {}
+    if (!_network || !_nodes) return;
+    const pal = PALETTES[mode];
+    const q = (document.getElementById('search').value || '').toLowerCase().trim();
+    const updates = [];
+    _nodes.forEach(n => {
+      const accent = pal.nodes[n.engram.type] || pal.nodes.fact;
+      const match = !q || (
+        n.label + ' ' + (n.engram.tags || []).join(' ') + ' ' + (n.engram.body || '')
+      ).toLowerCase().includes(q);
+      const dimColor = mode === 'dark' ? 'rgba(255,255,255,0.35)' : 'rgba(60,60,67,0.45)';
+      updates.push({
+        id: n.id,
+        font: { color: q && !match ? dimColor : pal.fontColor,
+                size: 13, face: 'Inter, -apple-system, "SF Pro Text", system-ui, sans-serif' },
+        color: {
+          background: pal.nodeBg,
+          border: accent,
+          highlight: { background: accent, border: pal.highlightTextColor },
+          hover: { background: accent, border: pal.highlightTextColor },
+        },
+      });
+    });
+    _nodes.update(updates);
+    const edgeUpdates = [];
+    _edges.forEach(e => {
+      const kind = e.engram && e.engram.type;
+      const c = (kind && pal.edges[kind]) || pal.edgeDefault;
+      edgeUpdates.push({ id: e.id, color: { color: c, highlight: pal.nodes.fact, hover: pal.edgeHover } });
+    });
+    if (edgeUpdates.length) _edges.update(edgeUpdates);
+    _network.setOptions({
+      nodes: { font: { color: pal.fontColor, bold: { color: pal.fontColor } } },
+      edges: { color: { color: pal.edgeDefault, highlight: pal.nodes.fact, hover: pal.edgeHover } },
+    });
+  }
+
+  // Apply persisted body class immediately (CSS-driven theme); node recolouring
+  // is done after initGraph finishes (see fontsReady.then above).
+  document.body.classList.toggle('theme-light', currentMode === 'light');
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    applyTheme(currentMode === 'dark' ? 'light' : 'dark');
+  });
+
+  // Sidebar collapse / expand (persisted)
+  function setSidebarCollapsed(collapsed) {
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    try { localStorage.setItem('engram-sidebar', collapsed ? '1' : '0'); } catch(e) {}
+  }
+  try {
+    if (localStorage.getItem('engram-sidebar') === '1') {
+      document.body.classList.add('sidebar-collapsed');
+    }
+  } catch(e) {}
+  document.getElementById('sidebar-collapse').addEventListener('click', () => setSidebarCollapsed(true));
+  document.getElementById('engram-watermark').addEventListener('click', () => setSidebarCollapsed(false));
+</script>
+</body>
+</html>
