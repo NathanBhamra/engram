@@ -73,6 +73,20 @@ def run(
         verdict = worthiness.check(piece.text, min_signals=min_signals, min_word_count=min_words)
         if not force and verdict.verdict.name == "REJECT":
             outcome.rejected.append((piece.title, verdict.reason))
+            _audit(
+                conn,
+                "store_reject",
+                {
+                    "title": piece.title,
+                    "session": session_id,
+                    "verdict": verdict.verdict.value,
+                    "reason": verdict.reason,
+                    "signals": verdict.signals,
+                    "word_count": verdict.word_count,
+                    "tags": list(tags),
+                    "node_type": node_type,
+                },
+            )
             continue
         note = notes.Note(
             id=notes.make_id(piece.title, piece.text),
@@ -90,10 +104,16 @@ def run(
             "store",
             {
                 "id": note.id,
+                "title": note.title,
                 "session": session_id,
                 "verdict": verdict.verdict.value,
+                "reason": verdict.reason,
                 "signals": verdict.signals,
+                "word_count": verdict.word_count,
+                "tags": list(tags),
+                "node_type": node_type,
                 "redactions": report.hits,
+                "forced": force,
             },
         )
         outcome.stored.append(note)
