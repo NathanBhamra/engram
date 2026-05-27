@@ -78,9 +78,17 @@ Skip store ONLY for: pure clarifying questions, status updates ("done"), or repl
 <engram-venv-python> -m engram recall "<keywords>" --json --top 5
 ```
 
-## How to STORE
+## How to STORE — use `autostore`
 
-Pipe text into stdin. Pick the right `--type`:
+The preferred call is **`engram autostore`** — the worthiness filter decides
+whether the content is worth keeping, and every decision (accept or reject)
+is written to the audit log so the operator can review the filter weekly.
+
+```
+echo "<content>" | engram autostore --type pattern --tag <project> --tag <domain> --session <session-id>
+```
+
+Pick the right `--type`:
 
 | Type | Use for | TTL |
 |---|---|---|
@@ -89,9 +97,17 @@ Pipe text into stdin. Pick the right `--type`:
 | `decision` | Choices made with reasoning (architecture, naming, tooling) | 365d |
 | `reference` | Stable lookups (URLs, file paths, command snippets, schemas) | 365d |
 
-```
-"Force-directed graphs animate well with cubic-bezier(.4,0,.2,1) easing." | <engram-venv-python> -m engram store --type pattern --tag viz --tag css
-```
+Key properties of `autostore`:
+
+- **Always exits 0** — never fails the caller, even on rejection. Safe to
+  pipe through unconditionally.
+- **Quiet by default** — no stdout unless `--verbose`. Won't clutter agent
+  output. Use `--json` for scripted consumption.
+- **Audit-logged** — every accept and reject lands in `audit_log` with the
+  full signal breakdown (verdict, signals detected, word count, reason).
+- **Worthiness filter still gates** — content with fewer than the configured
+  signals (URL, file path, ticket, identifier, code, structured list, etc.)
+  is rejected silently.
 
 **Tag generously.** Tags are free and they fuel the alias graph. Always include:
 
@@ -99,17 +115,24 @@ Pipe text into stdin. Pick the right `--type`:
 - Domain: `viewer`, `cli`, `viz`, `theme`, `playwright`, `jira`
 - Status if relevant: `wip`, `done`, `blocker`
 
-**!store directive** — including the literal token `!store` anywhere in the content forces the worthiness filter to accept it. Use sparingly, for content you KNOW is valuable but might fail the heuristic (short sentences with low signal density).
+**`--force`** — bypasses the worthiness filter. Use only for short but
+genuinely valuable content (e.g. a one-line decision). Pre-`autostore` agents
+used the `!store` text marker; that still works inside the content too.
 
-**Multi-paragraph content** is auto-chunked. Just pipe the whole thing in. Engram splits on headers first, then recursively by character count.
+**Multi-paragraph content** is auto-chunked. Just pipe the whole thing in.
+Engram splits on headers first, then recursively by character count.
+
+**When to fall back to `engram store`** — only when you need the verbose
+"stored / rejected / redactions" report on stdout (e.g. interactive debug).
+For per-turn auto-storage, `autostore` is always the right call.
 
 ## The minimum loop you must follow
 
 ```
 1. User prompts you.
-2. You: engram recall "<keywords>" — silently. Read the results.
+2. You: engram recall "<keywords>"            — silently. Read the results.
 3. You: produce your reply, informed by what recall returned.
-4. You: engram store <reply or distilled decision/pattern> — silently. Tag it.
+4. You: engram autostore <reply-or-distilled> — silently. Tag it.
 5. You: send the reply to the user.
 ```
 
@@ -120,8 +143,8 @@ Steps 2 and 4 are **non-negotiable**. They run in the background of every turn.
 - **Don't tell the user you ran Engram** unless they asked or the output materially shaped your reply. The skill is plumbing, not a feature.
 - **Don't store credentials, tokens, or PII.** Engram redacts JWTs, GitHub PATs, AWS keys, Atlassian IDs, Bearer tokens, long hex strings, and Windows/Unix paths automatically — but don't rely on it as a substitute for not pasting secrets in the first place.
 - **Don't recall on every micro-step.** Recall once at the start of a turn (not before every tool call within a turn).
-- **Don't store noise.** Status updates, greetings, single-word confirmations.
-- **Don't run `engram store` with `--force`** unless the user explicitly tells you to.
+- **Don't pre-filter for "is this worth storing?"** — that's `autostore`'s job. When in doubt, pipe it in.
+- **Don't run `autostore --force`** unless the user explicitly tells you to.
 
 ## Verifying & curating (escalate to Semon)
 
@@ -132,7 +155,15 @@ If you discover that a recalled chunk is now wrong, outdated, or needs evidence 
 Run once per session to confirm Engram is reachable:
 
 ```
-<engram-venv-python> -m engram doctor
+engram doctor
 ```
 
 Expected: `db status : ok` and a non-zero node count once the corpus has any entries.
+
+## Weekly review (operator-facing, not agent-facing)
+
+```
+engram audit --op store_reject --pretty --tail 100   # what was filtered out
+engram audit --op store --pretty --tail 100          # what was kept
+engram usage                                         # corpus size + token value
+```
