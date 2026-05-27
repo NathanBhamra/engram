@@ -26,7 +26,7 @@ from engram.viz import renderer
     "out_path",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
-    help="Output HTML path (default: from config, usually viz.html).",
+    help="Output HTML path (default: from config, usually viz.html / viz-3d.html).",
 )
 @click.option(
     "--theme",
@@ -46,6 +46,13 @@ from engram.viz import renderer
     default=False,
     help="Skip edge derivation and metric recomputation; render current state.",
 )
+@click.option(
+    "--3d",
+    "three_d",
+    is_flag=True,
+    default=False,
+    help="Render the WebGL 3D viewer (3d-force-graph + bloom) instead of the 2D graph.",
+)
 @click.pass_context
 def view(
     ctx: click.Context,
@@ -54,13 +61,18 @@ def view(
     theme: str | None,
     include_quarantined: bool,
     no_recompute: bool,
+    three_d: bool,
 ) -> None:
     """Render the knowledge graph as a self-contained HTML file."""
     config, conn, _, _ = resolve_paths(ctx)
     target = out_path
     if target is None:
         base = config.source.parent if config.source else Path.cwd()
-        target = (base / config.get("paths", "viz_out", default="viz.html")).resolve()
+        default_key = "viz_3d_out" if three_d else "viz_out"
+        default_name = "viz-3d.html" if three_d else "viz.html"
+        target = (
+            base / config.get("paths", default_key, default=default_name)
+        ).resolve()
     theme_name = theme or config.get("viz", "theme", default="dark")
 
     try:
@@ -79,6 +91,7 @@ def view(
             target,
             theme_name=theme_name,
             include_quarantined=include_quarantined,
+            three_d=three_d,
         )
     finally:
         conn.close()

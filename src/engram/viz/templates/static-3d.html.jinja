@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engram — 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: {{ theme_dark.background }};
+    --fg: {{ theme_dark.foreground }};
+    --panel: {{ theme_dark.sidebar_bg }};
+    --hairline: rgba(255,255,255,0.08);
+    --hairline-strong: rgba(255,255,255,0.14);
+    --muted: rgba(235,235,245,0.55);
+    --muted-2: rgba(235,235,245,0.32);
+    --surface: rgba(255,255,255,0.04);
+    --surface-2: rgba(255,255,255,0.06);
+    --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    --accent: #5e5ce6;
+    --danger: #ff375f;
+    --warn: #ff9f0a;
+    --type-fact: #5e5ce6;
+    --type-pattern: #30d158;
+    --type-decision: #ff375f;
+    --type-reference: #ff9f0a;
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss03';
+    font-size: 14px;
+    color: var(--fg);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.011em;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(60% 50% at 50% 30%, rgba(10,132,255,0.10), transparent 70%),
+      radial-gradient(40% 40% at 80% 80%, rgba(48,209,88,0.06), transparent 70%);
+  }
+
+  /* 3D canvas fills the viewport behind the panels */
+  #graph {
+    position: fixed; inset: 0;
+    z-index: 1;
+  }
+
+  /* Engraved watermark visible when sidebar collapsed */
+  #engram-watermark {
+    position: fixed; left: 22px; top: 18px;
+    z-index: 2;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: transparent;
+    -webkit-text-stroke: 0.6px var(--hairline-strong);
+    text-shadow:
+      0 1px 0 var(--surface),
+      0 -1px 0 rgba(0,0,0,0.4);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .35s ease, transform .35s ease, color .15s, -webkit-text-stroke-color .15s;
+    user-select: none;
+    pointer-events: none;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  #engram-watermark::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); opacity: 0.6;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  body.sidebar-collapsed #engram-watermark {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  #engram-watermark:hover {
+    color: color-mix(in srgb, var(--accent) 18%, transparent);
+    -webkit-text-stroke-color: var(--accent);
+  }
+
+  .panel {
+    background: var(--panel);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 18px 18px;
+    box-shadow: var(--shadow);
+  }
+  .panel::-webkit-scrollbar { width: 8px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 8px; }
+
+  /* Sidebar — same shape as the 2D viewer */
+  #sidebar {
+    position: fixed; left: 14px; top: 14px;
+    width: 280px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    z-index: 4;
+    transition: transform .35s cubic-bezier(.4,.0,.2,1), opacity .25s ease;
+  }
+  body.sidebar-collapsed #sidebar {
+    transform: translateX(calc(-100% - 24px));
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar-collapse {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    color: var(--fg); cursor: pointer; padding: 0;
+    margin-left: auto;
+    transition: background .15s, border-color .15s;
+  }
+  .sidebar-collapse:hover { background: var(--surface); border-color: var(--hairline-strong); }
+  .sidebar-collapse svg { width: 12px; height: 12px; }
+
+  .brand { display: flex; align-items: center; gap: 10px; margin: 2px 0 18px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+  .brand-tag {
+    margin-left: 4px;
+    padding: 1px 6px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .brand-beta {
+    margin-left: 4px;
+    padding: 1px 6px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    animation: betaPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes betaPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.35); }
+    50%      { box-shadow: 0 0 16px rgba(239, 68, 68, 0.55); }
+  }
+  .brand-mode-link {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    border: 1px solid var(--hairline);
+    padding: 3px 8px;
+    border-radius: 999px;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .brand-mode-link:hover { color: var(--fg); border-color: var(--hairline-strong); background: var(--surface); }
+
+  /* Filter sections — collapsible, matching 2D */
+  .filter-section { margin: 22px 0 0; }
+  .filter-section:first-of-type { margin-top: 4px; }
+  .filter-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  .filter-section-toggle {
+    appearance: none; -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    font: inherit; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    transition: color .15s;
+  }
+  .filter-section-toggle:hover { color: var(--fg); }
+  .filter-section-toggle .chevron {
+    width: 9px; height: 9px;
+    transition: transform .2s cubic-bezier(.4,.0,.2,1);
+  }
+  .filter-section.collapsed .filter-section-toggle .chevron {
+    transform: rotate(-90deg);
+  }
+  .filter-section-body {
+    overflow: hidden;
+    max-height: 600px;
+    transition: max-height .25s cubic-bezier(.4,.0,.2,1), opacity .2s;
+    opacity: 1;
+  }
+  .filter-section.collapsed .filter-section-body {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
+  }
+  .filter-section .badge {
+    margin-left: 4px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  /* Stats grid */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-value { font-size: 22px; font-weight: 600; line-height: 1.1; margin-top: 4px;
+                font-feature-settings: "tnum"; font-variant-numeric: tabular-nums;
+                letter-spacing: -0.02em; }
+
+  /* Mode chips (cluster / type) */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    appearance: none; -webkit-appearance: none;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font: inherit; font-size: 12px; line-height: 1.4;
+    color: var(--fg);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .15s, border-color .15s, color .15s, transform .12s;
+  }
+  .chip:hover { background: var(--surface); border-color: var(--hairline-strong); }
+  .chip:active { transform: scale(0.96); }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .chip .swatch {
+    width: 9px; height: 9px; border-radius: 50%;
+    flex: none;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+  }
+  .chip.edge-chip .swatch { border-radius: 2px; width: 14px; height: 3px; box-shadow: none; }
+
+  /* Toggle rows + sliders */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+    color: var(--fg);
+  }
+  .toggle-row + .toggle-row { border-top: 1px solid var(--hairline); }
+  .toggle-row label { color: var(--muted); }
+  .toggle-row .switch {
+    width: 36px; height: 20px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .toggle-row .switch::after {
+    content: ''; position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform .2s cubic-bezier(.4,.0,.2,1), background .15s;
+  }
+  .toggle-row .switch.on {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .toggle-row .switch.on::after {
+    transform: translateX(16px);
+    background: #fff;
+  }
+
+  .slider-row { padding: 6px 0; }
+  .slider-row .slider-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); margin-bottom: 6px;
+  }
+  .slider-row .slider-label .value {
+    color: var(--fg); font-variant-numeric: tabular-nums;
+  }
+  input[type=range] {
+    width: 100%;
+    appearance: none; -webkit-appearance: none;
+    background: transparent;
+    height: 18px;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px; background: var(--surface-2); border-radius: 999px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -6px;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(94,92,230,0.5);
+  }
+  input[type=range]::-moz-range-track {
+    height: 3px; background: var(--surface-2); border-radius: 999px;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 0;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(94,92,230,0.5);
+  }
+
+  /* Selection info card — floats top-right */
+  #info {
+    position: fixed; right: 14px; top: 14px;
+    width: 320px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    z-index: 4;
+    opacity: 0;
+    transform: translateX(12px);
+    pointer-events: none;
+    transition: opacity .2s ease, transform .25s cubic-bezier(.4,.0,.2,1);
+  }
+  #info.visible {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  #info .info-title {
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    word-break: break-word;
+  }
+  #info .info-meta {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 12px;
+  }
+  #info .pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    color: var(--fg);
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+  #info .pill.stale { color: var(--warn); border-color: rgba(255,159,10,0.4); }
+  #info .info-body {
+    font-size: 12.5px; line-height: 1.55;
+    color: var(--fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  #info .info-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  #info .info-tag {
+    font-size: 10.5px;
+    padding: 2px 7px;
+    background: rgba(94,92,230,0.16);
+    color: var(--accent);
+    border-radius: 999px;
+  }
+  #info .info-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    color: var(--muted); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: color .15s, background .15s;
+  }
+  #info .info-close:hover { color: var(--fg); background: var(--surface); }
+
+  /* Help strip + version footer */
+  #help {
+    position: fixed; left: 14px; bottom: 12px;
+    z-index: 5;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    background: var(--panel);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+  #help kbd {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10.5px;
+    color: var(--fg);
+  }
+
+  #version-footer {
+    position: fixed; right: 14px; bottom: 12px;
+    z-index: 5;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    background: var(--panel);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+  #version-footer a { color: var(--muted); text-decoration: none; }
+  #version-footer a:hover { color: var(--fg); }
+  #version-footer .dev-badge {
+    margin-left: 6px;
+    padding: 1px 6px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  /* Tighten layout on narrow viewports — sidebar shrinks, info hides */
+  @media (max-width: 1100px) {
+    #info { width: 280px; }
+  }
+  @media (max-width: 900px) {
+    #sidebar { width: 240px; }
+    #info { display: none; }
+  }
+  @media (max-width: 700px) {
+    #sidebar {
+      max-width: calc(100vw - 28px);
+      width: calc(100vw - 28px);
+    }
+    #help { display: none; }
+  }
+
+  /* 3d-force-graph default tooltip override — gets a panel skin */
+  .scene-tooltip {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    background: var(--panel) !important;
+    color: var(--fg) !important;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 6px 10px !important;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: var(--shadow);
+    font-size: 12px !important;
+  }
+</style>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/addons/": "https://esm.sh/three@0.184.0/examples/jsm/"
+    }
+  }
+</script>
+</head>
+<body>
+  <div id="graph"></div>
+
+  <div id="engram-watermark" title="Open sidebar">Engram</div>
+
+  <aside id="sidebar" class="panel">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">Engram</span>
+      <a class="brand-mode-link" href="viz.html" title="Back to 2D viewer">2D</a>
+      <span class="brand-beta" title="3D mode is a work in progress">BETA</span>
+      <button class="sidebar-collapse" id="sidebar-collapse" title="Collapse">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Nodes</div><div class="stat-value">{{ sidebar_stats.nodes }}</div></div>
+      <div class="stat"><div class="stat-label">Edges</div><div class="stat-value">{{ sidebar_stats.edges }}</div></div>
+      <div class="stat"><div class="stat-label">Clusters</div><div class="stat-value">{{ sidebar_stats.clusters }}</div></div>
+      <div class="stat"><div class="stat-label">Stale</div><div class="stat-value">{{ sidebar_stats.stale }}</div></div>
+    </div>
+
+    <section class="filter-section" data-section="colour">
+      <div class="filter-section-head">
+        <button class="filter-section-toggle" data-toggle="colour">
+          <svg class="chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Colour by</span>
+        </button>
+      </div>
+      <div class="filter-section-body">
+        <div class="chip-row" id="colour-mode-chips">
+          <button class="chip active" data-mode="cluster">Cluster</button>
+          <button class="chip" data-mode="type">Type</button>
+        </div>
+        <div id="colour-legend" style="margin-top: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+      </div>
+    </section>
+
+    <section class="filter-section" data-section="display">
+      <div class="filter-section-head">
+        <button class="filter-section-toggle" data-toggle="display">
+          <svg class="chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Display</span>
+        </button>
+      </div>
+      <div class="filter-section-body">
+        <div class="toggle-row">
+          <label for="toggle-shared">Shared-tag edges</label>
+          <button class="switch" id="toggle-shared" aria-pressed="false" title="Toggle the dense shared-tag edge layer"></button>
+        </div>
+        <div class="toggle-row">
+          <label for="toggle-particles">Edge particles</label>
+          <button class="switch on" id="toggle-particles" aria-pressed="true"></button>
+        </div>
+        <div class="toggle-row">
+          <label for="toggle-bloom">Bloom</label>
+          <button class="switch on" id="toggle-bloom" aria-pressed="true"></button>
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Bloom strength</span><span class="value" id="bloom-strength-value">1.4</span></div>
+          <input type="range" id="bloom-strength" min="0" max="3" step="0.1" value="1.4" />
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Node size</span><span class="value" id="node-size-value">5.0</span></div>
+          <input type="range" id="node-size" min="1" max="12" step="0.5" value="5" />
+        </div>
+      </div>
+    </section>
+
+    <section class="filter-section" data-section="camera">
+      <div class="filter-section-head">
+        <button class="filter-section-toggle" data-toggle="camera">
+          <svg class="chevron" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Camera</span>
+        </button>
+      </div>
+      <div class="filter-section-body">
+        <div class="chip-row">
+          <button class="chip" id="cam-reset">Reset</button>
+          <button class="chip" id="cam-fit">Fit all</button>
+          <button class="chip" id="cam-orbit">Orbit</button>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <aside id="info" class="panel" aria-hidden="true">
+    <button class="info-close" id="info-close" title="Close">
+      <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+    </button>
+    <div class="info-title" id="info-title"></div>
+    <div class="info-meta" id="info-meta"></div>
+    <div class="info-body" id="info-body"></div>
+    <div class="info-tags" id="info-tags"></div>
+  </aside>
+
+  <div id="help">
+    <kbd>drag</kbd> rotate · <kbd>scroll</kbd> zoom · <kbd>right-drag</kbd> pan · <kbd>click</kbd> focus
+  </div>
+  <div id="version-footer">
+    <a href="{{ engram_repo_url }}" target="_blank" rel="noopener">engram v{{ engram_version }}</a>
+    {% if 'dev' in engram_version %}<span class="dev-badge">DEV</span>{% endif %}
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import ForceGraph3D from 'https://esm.sh/3d-force-graph@1.73.4';
+
+    const GRAPH_DATA = {{ graph_json | safe }};
+    const CLUSTER_LABELS = {{ cluster_labels_json | safe }};
+
+    const TYPE_COLOURS = {
+      fact: '#5e5ce6',
+      pattern: '#30d158',
+      decision: '#ff375f',
+      reference: '#ff9f0a',
+    };
+    const CLUSTER_PALETTE = [
+      '#5e5ce6','#30d158','#ff375f','#ff9f0a',
+      '#64d2ff','#bf5af2','#ffd60a','#ff6482',
+      '#0a84ff','#32d74b','#ff453a','#5ac8fa',
+      '#af52de','#ff9500','#ac8e68','#66d4cf',
+    ];
+    function clusterColour(cid) {
+      if (cid === null || cid === undefined) return '#8e8e93';
+      const i = ((Number(cid) % CLUSTER_PALETTE.length) + CLUSTER_PALETTE.length) % CLUSTER_PALETTE.length;
+      return CLUSTER_PALETTE[i];
+    }
+
+    // Re-key vis-network style payload for 3d-force-graph
+    const nodes = GRAPH_DATA.nodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      engram: n.engram,
+    }));
+    const allLinks = GRAPH_DATA.edges.map(e => ({
+      source: e.from,
+      target: e.to,
+      type: e.engram?.type || 'manual',
+      weight: e.engram?.weight || 1,
+    }));
+
+    const state = {
+      colourMode: 'cluster',
+      showShared: false,
+      showParticles: true,
+      bloomOn: true,
+      bloomStrength: 1.4,
+      nodeSize: 5,
+    };
+
+    function nodeColour(n) {
+      if (state.colourMode === 'type') {
+        return TYPE_COLOURS[n.engram?.type] || '#8e8e93';
+      }
+      return clusterColour(n.engram?.cluster);
+    }
+
+    const EDGE_COLOURS = {
+      'wiki-link':  'rgba(94, 92, 230, 0.65)',
+      'co-recall':  'rgba(48, 209, 88, 0.6)',
+      'shared-tag': 'rgba(142, 142, 147, 0.16)',
+      'manual':     'rgba(255, 159, 10, 0.7)',
+    };
+
+    function activeLinks() {
+      return state.showShared ? allLinks : allLinks.filter(l => l.type !== 'shared-tag');
+    }
+
+    const container = document.getElementById('graph');
+    const graph = ForceGraph3D()(container)
+      .backgroundColor('#04050a')
+      .graphData({ nodes, links: activeLinks() })
+      .nodeLabel(n => `<div><strong>${escapeHtml(n.label)}</strong><br/><span style="color:#8e8e93;font-size:10.5px;">${n.engram?.type || ''} · ${CLUSTER_LABELS[n.engram?.cluster] || `cluster ${n.engram?.cluster ?? '-'}`} · deg ${n.engram?.degree ?? 0}</span></div>`)
+      .nodeRelSize(state.nodeSize)
+      .nodeVal(n => 0.6 + Math.sqrt(n.engram?.degree || 0))
+      .nodeColor(nodeColour)
+      .nodeOpacity(0.92)
+      .linkColor(l => EDGE_COLOURS[l.type] || EDGE_COLOURS['shared-tag'])
+      .linkWidth(l => l.type === 'shared-tag' ? 0.3 : 0.8)
+      .linkOpacity(0.55)
+      .linkDirectionalParticles(l => state.showParticles && l.type === 'co-recall' ? 2 : 0)
+      .linkDirectionalParticleWidth(1.6)
+      .linkDirectionalParticleSpeed(0.006)
+      .onNodeClick(focusNode)
+      .onBackgroundClick(() => hideInfo());
+
+    graph.d3Force('charge').strength(-200);
+    graph.d3Force('link').distance(l => l.type === 'shared-tag' ? 90 : 50);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      state.bloomStrength, 0.55, 0.18
+    );
+    graph.postProcessingComposer().addPass(bloomPass);
+
+    // Track bloom enable/disable: keep pass attached, just zero strength to toggle.
+    function applyBloom() {
+      bloomPass.strength = state.bloomOn ? state.bloomStrength : 0;
+    }
+
+    // --- Interactions ---
+    function focusNode(node) {
+      const dist = Math.hypot(node.x, node.y, node.z) || 1;
+      const ratio = 1 + 90 / dist;
+      graph.cameraPosition(
+        { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio },
+        node,
+        1200
+      );
+      showInfo(node);
+    }
+
+    function showInfo(n) {
+      const e = n.engram || {};
+      document.getElementById('info-title').textContent = n.label || '(untitled)';
+      const meta = document.getElementById('info-meta');
+      meta.innerHTML = '';
+      addPill(meta, e.type);
+      if (e.cluster !== null && e.cluster !== undefined) addPill(meta, CLUSTER_LABELS[e.cluster] || `cluster ${e.cluster}`);
+      addPill(meta, `degree ${e.degree ?? 0}`);
+      if (e.past_ttl) addPill(meta, 'STALE', 'stale');
+      document.getElementById('info-body').textContent = e.body || '(no body)';
+      const tagWrap = document.getElementById('info-tags');
+      tagWrap.innerHTML = '';
+      (e.tags || []).filter(Boolean).forEach(t => {
+        const el = document.createElement('span');
+        el.className = 'info-tag';
+        el.textContent = t;
+        tagWrap.appendChild(el);
+      });
+      document.getElementById('info').classList.add('visible');
+      document.getElementById('info').setAttribute('aria-hidden', 'false');
+    }
+    function hideInfo() {
+      document.getElementById('info').classList.remove('visible');
+      document.getElementById('info').setAttribute('aria-hidden', 'true');
+    }
+    function addPill(parent, text, cls) {
+      if (!text) return;
+      const el = document.createElement('span');
+      el.className = 'pill' + (cls ? ' ' + cls : '');
+      el.textContent = text;
+      parent.appendChild(el);
+    }
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    document.getElementById('info-close').addEventListener('click', hideInfo);
+
+    // --- Colour mode chips ---
+    document.querySelectorAll('#colour-mode-chips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#colour-mode-chips .chip')
+          .forEach(b => b.classList.toggle('active', b === btn));
+        state.colourMode = btn.dataset.mode;
+        graph.nodeColor(nodeColour);
+        paintLegend();
+      });
+    });
+
+    function paintLegend() {
+      const wrap = document.getElementById('colour-legend');
+      wrap.innerHTML = '';
+      const items = state.colourMode === 'type'
+        ? Object.entries(TYPE_COLOURS).map(([k,c]) => [k, c])
+        : Array.from(new Set(nodes.map(n => n.engram?.cluster)))
+            .filter(c => c !== null && c !== undefined)
+            .sort((a,b) => a - b)
+            .slice(0, 8)
+            .map(cid => [CLUSTER_LABELS[cid] || `cluster ${cid}`, clusterColour(cid)]);
+      items.forEach(([label, colour]) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg);';
+        const dot = document.createElement('span');
+        dot.style.cssText = `width:9px;height:9px;border-radius:50%;background:${colour};box-shadow:0 0 0 1px rgba(0,0,0,0.25);`;
+        row.appendChild(dot);
+        const txt = document.createElement('span');
+        txt.textContent = label;
+        txt.style.color = 'var(--muted)';
+        row.appendChild(txt);
+        wrap.appendChild(row);
+      });
+    }
+    paintLegend();
+
+    // --- Switches ---
+    function bindSwitch(id, key, onChange) {
+      const el = document.getElementById(id);
+      const sync = () => {
+        el.classList.toggle('on', state[key]);
+        el.setAttribute('aria-pressed', String(state[key]));
+      };
+      el.addEventListener('click', () => {
+        state[key] = !state[key];
+        sync();
+        onChange();
+      });
+      sync();
+    }
+    bindSwitch('toggle-shared', 'showShared', () => {
+      graph.graphData({ nodes, links: activeLinks() });
+    });
+    bindSwitch('toggle-particles', 'showParticles', () => {
+      graph.linkDirectionalParticles(l => state.showParticles && l.type === 'co-recall' ? 2 : 0);
+    });
+    bindSwitch('toggle-bloom', 'bloomOn', applyBloom);
+
+    // --- Sliders ---
+    const bloomSlider = document.getElementById('bloom-strength');
+    const bloomLabel = document.getElementById('bloom-strength-value');
+    bloomSlider.addEventListener('input', () => {
+      state.bloomStrength = parseFloat(bloomSlider.value);
+      bloomLabel.textContent = state.bloomStrength.toFixed(1);
+      applyBloom();
+    });
+    const sizeSlider = document.getElementById('node-size');
+    const sizeLabel = document.getElementById('node-size-value');
+    sizeSlider.addEventListener('input', () => {
+      state.nodeSize = parseFloat(sizeSlider.value);
+      sizeLabel.textContent = state.nodeSize.toFixed(1);
+      graph.nodeRelSize(state.nodeSize);
+    });
+
+    // --- Camera buttons ---
+    document.getElementById('cam-reset').addEventListener('click', () => {
+      graph.cameraPosition({ x: 0, y: 0, z: 400 }, { x: 0, y: 0, z: 0 }, 1200);
+    });
+    document.getElementById('cam-fit').addEventListener('click', () => {
+      graph.zoomToFit(1000, 60);
+    });
+    let orbitTimer = null;
+    document.getElementById('cam-orbit').addEventListener('click', (ev) => {
+      const btn = ev.currentTarget;
+      if (orbitTimer) {
+        clearInterval(orbitTimer); orbitTimer = null;
+        btn.classList.remove('active'); return;
+      }
+      btn.classList.add('active');
+      let angle = 0;
+      const distance = 500;
+      orbitTimer = setInterval(() => {
+        angle += Math.PI / 600;
+        graph.cameraPosition({
+          x: distance * Math.sin(angle),
+          y: 60,
+          z: distance * Math.cos(angle),
+        });
+      }, 16);
+    });
+
+    // --- Collapsible filter sections ---
+    const COLLAPSE_KEY = 'engram-3d-sections-collapsed';
+    function loadCollapsed() {
+      try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || []); }
+      catch { return new Set(); }
+    }
+    function saveCollapsed(set) {
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+    }
+    const collapsed = loadCollapsed();
+    document.querySelectorAll('.filter-section').forEach(sec => {
+      const id = sec.dataset.section;
+      if (collapsed.has(id)) sec.classList.add('collapsed');
+    });
+    document.querySelectorAll('.filter-section-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.toggle;
+        const sec = document.querySelector(`.filter-section[data-section="${id}"]`);
+        sec.classList.toggle('collapsed');
+        if (sec.classList.contains('collapsed')) collapsed.add(id); else collapsed.delete(id);
+        saveCollapsed(collapsed);
+      });
+    });
+
+    // --- Sidebar collapse ---
+    const SIDEBAR_KEY = 'engram-3d-sidebar-collapsed';
+    if (localStorage.getItem(SIDEBAR_KEY) === '1') {
+      document.body.classList.add('sidebar-collapsed');
+    }
+    document.getElementById('sidebar-collapse').addEventListener('click', () => {
+      document.body.classList.add('sidebar-collapsed');
+      localStorage.setItem(SIDEBAR_KEY, '1');
+    });
+    document.getElementById('engram-watermark').addEventListener('click', () => {
+      document.body.classList.remove('sidebar-collapsed');
+      localStorage.setItem(SIDEBAR_KEY, '0');
+    });
+
+    // --- Resize handling ---
+    window.addEventListener('resize', () => {
+      bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+    });
+
+    applyBloom();
+  </script>
+</body>
+</html>
