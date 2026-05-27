@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-05-27
+
+### Added
+
+- **`[edges]` config block** — two knobs governing shared-tag edge
+  derivation: `blanket_tag_threshold` (default `0.30`, fraction of corpus
+  above which a tag is treated as metadata, not a semantic link) and
+  `exclude_tags` (default `[]`, explicit tags to always treat as blanket).
+  Tags meeting either condition are projected out of node tag sets
+  *before* edges are derived, instead of contributing diluted weight.
+- **`viz.edges.compute_blanket_tags(conn, config=)`** — public helper so
+  other viewer code (cluster naming, future filters) can stay aligned
+  with the edge deriver instead of duplicating the threshold heuristic.
+
+### Changed
+
+- **Shared-tag edge weighting is now IDF-weighted Jaccard.** Each tag's
+  contribution is scaled by `log((N+1)/(df+1)) + 1.0`; rare tags
+  dominate, blanket tags barely count. Below `_MIN_SHARED_TAG_WEIGHT`
+  (0.05) the edge is dropped. On the 144-node live corpus this took
+  edges from **6,993 → 674 (-90%)** and made clusters readable
+  (Cifas-Autofile nodes now group together, Engram architecture
+  separates from release/3D-viewer work).
+- **Cluster names exclude blanket tags.** The cluster-naming TF-IDF
+  scorer now skips the same blanket set as the edge deriver, so cluster
+  chips surface real semantic signal (`config · nathan`,
+  `tooling · 3d-viewer`, `git-workflow · governance`) rather than the
+  meta-tags that are present on most nodes (`session-checkpoint`,
+  `via-semon`, `engram`, `seed`).
+- **Singleton-cluster naming** falls back to the node's own (truncated)
+  title rather than inventing tag-style names from one title's words.
+  Honest and useful; previously produced strings like
+  `cusersuserengramsrcengramcoreschema001_initialsql`.
+- **Cluster sidebar swatches removed.** Per-cluster colour collided
+  with the type palette. Cluster identity now comes from the chip
+  label + count badge alone; the type owns the per-node hue.
+
+### Notes
+
+- **Root cause of the visual washout reported during v0.5.1
+  dogfooding:** 6,993 semi-transparent shared-tag edges on a dense
+  layout saturate the canvas alpha channel, making the graph look
+  blank/near-white. The IDF reweighting fixes both the visual symptom
+  and the underlying mis-clustering (Louvain was gluing semantically
+  unrelated nodes via mega-tags like `via-semon` present on 84% of the
+  corpus).
+- **One side-effect:** 50+ checkpoint-fragment nodes that *only* had
+  blanket tags now form 1-node clusters (no semantic tags = no shared
+  edges = orphaned). This correctly exposes a corpus hygiene issue —
+  those nodes are bulk-imported markdown fragments that shouldn't be
+  separate Engram nodes. To be cleaned with a `forget` sweep, not
+  papered over by the algorithm.
+- **Reality check on Day 1 dogfooding:** Engram is currently a
+  write-mostly system; this session autostored 3 facts and recalled 0
+  times. The retrieval-side adoption work (auto-recall on session
+  start, SKILL.md rule reversal, token telemetry) is the v0.6.0 plan
+  and the gate for declaring Engram a token-positive system.
+
 ## [0.5.1] - 2026-05-27
 
 ### Added
@@ -177,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback). Total now 61 passing.
 - **scipy** added to dependencies (required by NetworkX's PageRank).
 
-[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/NathanBhamra/engram/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/NathanBhamra/engram/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/NathanBhamra/engram/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/NathanBhamra/engram/compare/v0.4.0...v0.4.1

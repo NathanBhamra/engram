@@ -77,7 +77,7 @@ def view(
 
     try:
         if not no_recompute:
-            edge_counts = edges_mod.recompute_derived(conn)
+            edge_counts = edges_mod.recompute_derived(conn, config=config)
             metric_stats = metrics_mod.recompute(conn)
             click.echo(
                 f"Recomputed edges: {edge_counts} | "
@@ -92,6 +92,7 @@ def view(
             theme_name=theme_name,
             include_quarantined=include_quarantined,
             three_d=three_d,
+            config=config,
         )
     finally:
         conn.close()

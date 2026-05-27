@@ -338,16 +338,9 @@
   .tag-chip.active .count { background: rgba(255,255,255,0.18); color: #fff; }
   body.theme-light .tag-chip.active { color: #fff; }
 
-  /* Cluster swatches inside cluster chips */
-  .cluster-swatch {
-    width: 9px; height: 9px;
-    border-radius: 2px;
-    display: inline-block;
-    flex: none;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
-  }
+  /* Cluster chips are neutral — type colour owns the per-node hue.
+     Cluster identity comes from the chip label + count. */
   .tag-chip.cluster-chip { display: inline-flex; align-items: center; gap: 6px; }
-  .tag-chip.cluster-chip.active .cluster-swatch { box-shadow: 0 0 0 2px rgba(255,255,255,0.6); }
   .tag-clear {
     appearance: none; -webkit-appearance: none;
     background: transparent;
@@ -614,7 +607,7 @@
       <div class="filter-section-body">
         <div class="tag-chips" id="cluster-chips">
           {% for entry in cluster_counts %}
-          <button type="button" class="tag-chip cluster-chip" data-cluster="{{ entry.cluster }}"><span class="cluster-swatch" data-cluster="{{ entry.cluster }}"></span>{{ entry.label }}<span class="count">{{ entry.count }}</span></button>
+          <button type="button" class="tag-chip cluster-chip" data-cluster="{{ entry.cluster }}">{{ entry.label }}<span class="count">{{ entry.count }}</span></button>
           {% endfor %}
         </div>
       </div>
@@ -781,20 +774,8 @@
     if (Array.isArray(cl)) cl.forEach(x => activeClusters.add(Number(x)));
   } catch (e) {}
 
-  // Colour swatches for cluster chips, sampled from the type palette so they
-  // sit nicely with the rest of the design. Looked up by cluster id mod len.
-  const CLUSTER_PALETTE_KEYS = ['fact', 'decision', 'pattern', 'reference'];
-  function colourForCluster(cid) {
-    const pal = PALETTES[currentMode].nodes;
-    const k = CLUSTER_PALETTE_KEYS[Math.abs(Number(cid)) % CLUSTER_PALETTE_KEYS.length];
-    return pal[k] || pal.fact;
-  }
-  function paintClusterSwatches() {
-    document.querySelectorAll('.cluster-swatch[data-cluster]').forEach(el => {
-      el.style.background = colourForCluster(el.dataset.cluster);
-    });
-  }
-  paintClusterSwatches();
+  // (Removed: per-cluster colour swatches. Type owns the colour; cluster
+  // identity in the sidebar comes from the chip label + count badge.)
 
   function persistFilters() {
     try {

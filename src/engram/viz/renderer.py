@@ -6,13 +6,16 @@ import json
 import sqlite3
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from engram.version import __version__
 from engram.viz import exporter, metrics
 from engram.viz import theme as theme_mod
+
+if TYPE_CHECKING:
+    from engram.config import Config
 
 
 def _load_vendored_asset(name: str) -> str | None:
@@ -34,6 +37,7 @@ def render(
     theme_name: str = "dark",
     include_quarantined: bool = False,
     three_d: bool = False,
+    config: "Config | None" = None,
 ) -> dict[str, Any]:
     """Build the graph payload and render the static HTML.
 
@@ -47,7 +51,7 @@ def render(
     )
     stats = metrics.graph_stats(conn)
     tags = metrics.tag_counts(conn, limit=20)
-    clusters = metrics.cluster_counts(conn)
+    clusters = metrics.cluster_counts(conn, config=config)
     cluster_label_map = {entry["cluster"]: entry["label"] for entry in clusters}
 
     env = Environment(

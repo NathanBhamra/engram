@@ -9,10 +9,13 @@ The functions tolerate empty graphs and graphs with no edges.
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import community as community_louvain
 import networkx as nx
+
+if TYPE_CHECKING:
+    from engram.config import Config
 
 
 def _build_graph(conn: sqlite3.Connection) -> nx.Graph:
@@ -116,7 +119,9 @@ def tag_counts(conn: sqlite3.Connection, limit: int = 20) -> list[dict[str, Any]
     ]
 
 
-def cluster_counts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def cluster_counts(
+    conn: sqlite3.Connection, *, config: "Config | None" = None
+) -> list[dict[str, Any]]:
     """Return per-cluster node counts for the active (non-quarantined) graph.
 
     Sorted by count desc. Each entry is ``{"cluster": int, "count": int,
@@ -129,7 +134,7 @@ def cluster_counts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         "FROM nodes WHERE quarantined = 0 "
         "GROUP BY cluster_id ORDER BY n DESC, cid ASC"
     ).fetchall()
-    labels = cluster_labels(conn)
+    labels = cluster_labels(conn, config=config)
     return [
         {
             "cluster": int(row["cid"] if row["cid"] is not None else 0),
@@ -143,19 +148,33 @@ def cluster_counts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     ]
 
 
-def cluster_labels(conn: sqlite3.Connection, *, per_cluster: int = 2) -> dict[int, str]:
+def cluster_labels(
+    conn: sqlite3.Connection,
+    *,
+    per_cluster: int = 2,
+    config: "Config | None" = None,
+) -> dict[int, str]:
     """Derive a human-readable name for each cluster from its node content.
 
     Uses a TF-IDF-style score per tag: how concentrated a tag is in this
     cluster versus the rest of the graph. Picks the top ``per_cluster`` tags
-    and joins them with " · ". Node titles are used as a tiebreaker when a
-    cluster has no tags at all (top noun-ish word from titles).
+    and joins them with " · ". Blanket tags (those excluded by the edge
+    deriver — meta/structural tags like ``via-semon`` or ``engram``) are
+    skipped here too so cluster names surface *semantic* signal. When a
+    cluster has no usable semantic tags, falls back to the most distinctive
+    word from its node titles.
 
     Returns ``{cluster_id: label}``. Clusters with no usable signal are
     omitted; callers should fall back to ``f"cluster {cid}"``.
     """
     from collections import Counter, defaultdict
     from math import log
+    import re as _re
+
+    # Stay aligned with edge derivation: exclude the same blanket tags.
+    from engram.viz import edges as _edges_mod
+
+    blanket = _edges_mod.compute_blanket_tags(conn, config=config)
 
     rows = conn.execute(
         "SELECT cluster_id AS cid, tags, title "
@@ -184,7 +203,7 @@ def cluster_labels(conn: sqlite3.Connection, *, per_cluster: int = 2) -> dict[in
         seen: set[str] = set()
         for tag in str(tags_raw).split(","):
             t = tag.strip().lower()
-            if not t:
+            if not t or t in blanket:
                 continue
             cluster_tags[cid][t] += 1
             if t not in seen:
@@ -193,6 +212,30 @@ def cluster_labels(conn: sqlite3.Connection, *, per_cluster: int = 2) -> dict[in
 
     total_clusters = max(1, len(cluster_sizes))
     labels: dict[int, str] = {}
+
+    # Stopwords for title fallback. Includes common markup leftovers, generic
+    # filler words, and the user's name (which is everywhere and meaningless
+    # as a cluster identifier on its own).
+    stop = {
+        "the", "a", "an", "and", "or", "of", "to", "in", "on", "for",
+        "with", "is", "are", "be", "this", "that", "it", "as", "by",
+        "at", "from", "but", "not", "no", "if", "so", "do", "does",
+        "overview", "history", "checkpoint", "session", "added", "section",
+        "note", "notes", "summary", "user", "users", "nathan", "said",
+        "use", "used", "using", "via", "new", "old", "more", "than",
+        "you", "your", "his", "her", "they", "them", "our", "we",
+    }
+    _word_re = _re.compile(r"[A-Za-z][A-Za-z0-9_\-]+")
+
+    def _title_words(titles: list[str], n: int) -> list[str]:
+        """Extract the n most distinctive non-stopword tokens from titles."""
+        wc: Counter[str] = Counter()
+        for title in titles:
+            for tok in _word_re.findall(title.lower()):
+                if tok in stop or len(tok) < 3 or len(tok) > 24:
+                    continue
+                wc[tok] += 1
+        return [w for w, _ in wc.most_common(n)]
 
     for cid, size in cluster_sizes.items():
         tag_scores: list[tuple[str, float]] = []
@@ -204,18 +247,17 @@ def cluster_labels(conn: sqlite3.Connection, *, per_cluster: int = 2) -> dict[in
         picked = [t for t, _ in tag_scores[:per_cluster]]
 
         if not picked:
-            stop = {
-                "the", "a", "an", "and", "or", "of", "to", "in", "on", "for",
-                "with", "is", "are", "be", "this", "that", "it", "as", "by",
-                "at", "from", "but", "not", "no", "if", "so", "do", "does",
-            }
-            word_counter: Counter[str] = Counter()
-            for title in cluster_titles[cid]:
-                for raw in title.lower().split():
-                    word = "".join(ch for ch in raw if ch.isalnum() or ch in "-_")
-                    if word and word not in stop and len(word) > 2:
-                        word_counter[word] += 1
-            picked = [w for w, _ in word_counter.most_common(per_cluster)]
+            # No semantic tag survived blanket-pruning.
+            if size == 1 and cluster_titles[cid]:
+                # Singleton: most honest label is the node's own title,
+                # truncated. Beats inventing a tag-style name from one title.
+                title = cluster_titles[cid][0].strip()
+                if len(title) > 40:
+                    title = title[:37].rstrip() + "…"
+                if title:
+                    labels[cid] = title
+                continue
+            picked = _title_words(cluster_titles[cid], per_cluster)
 
         if picked:
             labels[cid] = " · ".join(picked)
