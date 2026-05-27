@@ -46,6 +46,7 @@ def render(
     )
     stats = metrics.graph_stats(conn)
     tags = metrics.tag_counts(conn, limit=20)
+    clusters = metrics.cluster_counts(conn)
 
     env = Environment(
         loader=PackageLoader("engram.viz", "templates"),
@@ -64,6 +65,7 @@ def render(
         graph_json=json.dumps(payload, default=str),
         sidebar_stats=stats,
         tag_counts=tags,
+        cluster_counts=clusters,
         engram_version=__version__,
         engram_repo_url="https://github.com/NathanBhamra/engram",
         vis_network_js=vis_network_js,

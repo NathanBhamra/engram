@@ -175,6 +175,59 @@
   }
   .section-label:first-of-type { margin-top: 4px; }
 
+  /* Collapsible filter sections */
+  .filter-section { margin: 22px 0 0; }
+  .filter-section:first-of-type { margin-top: 4px; }
+  .filter-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  .filter-section-toggle {
+    appearance: none; -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    font: inherit; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    transition: color .15s;
+  }
+  .filter-section-toggle:hover { color: var(--fg); }
+  .filter-section-toggle .chevron {
+    width: 9px; height: 9px;
+    transition: transform .2s cubic-bezier(.4,.0,.2,1);
+  }
+  .filter-section.collapsed .filter-section-toggle .chevron {
+    transform: rotate(-90deg);
+  }
+  .filter-section-body {
+    overflow: hidden;
+    max-height: 600px;
+    transition: max-height .25s cubic-bezier(.4,.0,.2,1), opacity .2s;
+    opacity: 1;
+  }
+  .filter-section.collapsed .filter-section-body {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
+  }
+  .filter-section .badge {
+    margin-left: 4px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
   /* Stats grid */
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .stat {
@@ -270,6 +323,17 @@
   }
   .tag-chip.active .count { background: rgba(255,255,255,0.18); color: #fff; }
   body.theme-light .tag-chip.active { color: #fff; }
+
+  /* Cluster swatches inside cluster chips */
+  .cluster-swatch {
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    display: inline-block;
+    flex: none;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+  }
+  .tag-chip.cluster-chip { display: inline-flex; align-items: center; gap: 6px; }
+  .tag-chip.cluster-chip.active .cluster-swatch { box-shadow: 0 0 0 2px rgba(255,255,255,0.6); }
   .tag-clear {
     appearance: none; -webkit-appearance: none;
     background: transparent;
@@ -489,30 +553,72 @@
     </div>
 
     {% if tag_counts %}
-    <div class="section-label" style="display: flex; justify-content: space-between; align-items: baseline;">
-      <span>Tags</span>
-      <button type="button" id="tag-clear" class="tag-clear" hidden>clear</button>
-    </div>
-    <div class="tag-chips" id="tag-chips">
-      {% for entry in tag_counts %}
-      <button type="button" class="tag-chip" data-tag="{{ entry.tag }}">{{ entry.tag }}<span class="count">{{ entry.count }}</span></button>
-      {% endfor %}
-    </div>
+    <section class="filter-section" data-section="tags">
+      <div class="filter-section-head">
+        <button type="button" class="filter-section-toggle" data-toggle="tags" aria-expanded="true">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Tags</span><span class="badge" id="tag-active-count" hidden>0</span>
+        </button>
+        <button type="button" id="tag-clear" class="tag-clear" hidden>clear</button>
+      </div>
+      <div class="filter-section-body">
+        <div class="tag-chips" id="tag-chips">
+          {% for entry in tag_counts %}
+          <button type="button" class="tag-chip" data-tag="{{ entry.tag }}">{{ entry.tag }}<span class="count">{{ entry.count }}</span></button>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
     {% endif %}
 
-    <div class="section-label" style="display: flex; justify-content: space-between; align-items: baseline;">
-      <span>Types</span>
-      <button type="button" id="type-clear" class="tag-clear" hidden>clear</button>
-    </div>
-    {% for kind, colour in theme.node_colours.items() %}
-    <button type="button" class="legend-item type-chip" data-type="{{ kind }}"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</button>
-    {% endfor %}
-    <div class="legend-item"><span class="swatch" style="background: {{ theme.stale_colour }}"></span>stale</div>
+    <section class="filter-section" data-section="types">
+      <div class="filter-section-head">
+        <button type="button" class="filter-section-toggle" data-toggle="types" aria-expanded="true">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Types</span><span class="badge" id="type-active-count" hidden>0</span>
+        </button>
+        <button type="button" id="type-clear" class="tag-clear" hidden>clear</button>
+      </div>
+      <div class="filter-section-body">
+        {% for kind, colour in theme.node_colours.items() %}
+        <button type="button" class="legend-item type-chip" data-type="{{ kind }}"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</button>
+        {% endfor %}
+        <div class="legend-item"><span class="swatch" style="background: {{ theme.stale_colour }}"></span>stale</div>
+      </div>
+    </section>
 
-    <div class="section-label">Connections</div>
-    {% for kind, colour in theme.edge_colours.items() %}
-    <div class="legend-item edge"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</div>
-    {% endfor %}
+    {% if cluster_counts %}
+    <section class="filter-section" data-section="clusters">
+      <div class="filter-section-head">
+        <button type="button" class="filter-section-toggle" data-toggle="clusters" aria-expanded="true">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Clusters</span><span class="badge" id="cluster-active-count" hidden>0</span>
+        </button>
+        <button type="button" id="cluster-clear" class="tag-clear" hidden>clear</button>
+      </div>
+      <div class="filter-section-body">
+        <div class="tag-chips" id="cluster-chips">
+          {% for entry in cluster_counts %}
+          <button type="button" class="tag-chip cluster-chip" data-cluster="{{ entry.cluster }}"><span class="cluster-swatch" data-cluster="{{ entry.cluster }}"></span>cluster {{ entry.cluster }}<span class="count">{{ entry.count }}</span></button>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="filter-section" data-section="connections">
+      <div class="filter-section-head">
+        <button type="button" class="filter-section-toggle" data-toggle="connections" aria-expanded="true">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>Connections</span>
+        </button>
+      </div>
+      <div class="filter-section-body">
+        {% for kind, colour in theme.edge_colours.items() %}
+        <div class="legend-item edge"><span class="swatch" style="background: {{ colour }}"></span>{{ kind }}</div>
+        {% endfor %}
+      </div>
+    </section>
   </aside>
 
   <div id="graph-wrap">
@@ -646,21 +752,47 @@
 
   // --- Search: dim non-matches instead of hiding, so layout is stable
   //     and matches stay readable.
-  // ---- Filters: search (dim) + tags (hide) + types (hide) -----------------
+  // ---- Filters: search (dim) + tags (hide) + types (hide) + clusters (hide) --
   const activeTags = new Set();
   const activeTypes = new Set();
+  const activeClusters = new Set();
   try {
     const t = JSON.parse(localStorage.getItem('engram-tag-filter') || '[]');
     if (Array.isArray(t)) t.forEach(x => activeTags.add(x));
     const ty = JSON.parse(localStorage.getItem('engram-type-filter') || '[]');
     if (Array.isArray(ty)) ty.forEach(x => activeTypes.add(x));
+    const cl = JSON.parse(localStorage.getItem('engram-cluster-filter') || '[]');
+    if (Array.isArray(cl)) cl.forEach(x => activeClusters.add(Number(x)));
   } catch (e) {}
+
+  // Colour swatches for cluster chips, sampled from the type palette so they
+  // sit nicely with the rest of the design. Looked up by cluster id mod len.
+  const CLUSTER_PALETTE_KEYS = ['fact', 'decision', 'pattern', 'reference'];
+  function colourForCluster(cid) {
+    const pal = PALETTES[currentMode].nodes;
+    const k = CLUSTER_PALETTE_KEYS[Math.abs(Number(cid)) % CLUSTER_PALETTE_KEYS.length];
+    return pal[k] || pal.fact;
+  }
+  function paintClusterSwatches() {
+    document.querySelectorAll('.cluster-swatch[data-cluster]').forEach(el => {
+      el.style.background = colourForCluster(el.dataset.cluster);
+    });
+  }
+  paintClusterSwatches();
 
   function persistFilters() {
     try {
       localStorage.setItem('engram-tag-filter', JSON.stringify([...activeTags]));
       localStorage.setItem('engram-type-filter', JSON.stringify([...activeTypes]));
+      localStorage.setItem('engram-cluster-filter', JSON.stringify([...activeClusters]));
     } catch (e) {}
+  }
+
+  function updateBadge(id, count) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (count > 0) { el.hidden = false; el.textContent = String(count); }
+    else { el.hidden = true; }
   }
 
   function applyFilters() {
@@ -672,9 +804,11 @@
       const accent = pal.nodes[n.engram.type] || pal.nodes.fact;
       const tags = n.engram.tags || [];
       const type = n.engram.type;
+      const cluster = n.engram.cluster;
       const passesTag = activeTags.size === 0 || tags.some(t => activeTags.has(t));
       const passesType = activeTypes.size === 0 || activeTypes.has(type);
-      const hidden = !(passesTag && passesType);
+      const passesCluster = activeClusters.size === 0 || activeClusters.has(Number(cluster));
+      const hidden = !(passesTag && passesType && passesCluster);
       const match = !q || (
         n.label + ' ' + tags.join(' ') + ' ' + (n.engram.body || '')
       ).toLowerCase().includes(q);
@@ -692,52 +826,71 @@
       });
     });
     nodes.update(updates);
-    // Toggle clear buttons
     const tagClear = document.getElementById('tag-clear');
     if (tagClear) tagClear.hidden = activeTags.size === 0;
     const typeClear = document.getElementById('type-clear');
     if (typeClear) typeClear.hidden = activeTypes.size === 0;
+    const clusterClear = document.getElementById('cluster-clear');
+    if (clusterClear) clusterClear.hidden = activeClusters.size === 0;
+    updateBadge('tag-active-count', activeTags.size);
+    updateBadge('type-active-count', activeTypes.size);
+    updateBadge('cluster-active-count', activeClusters.size);
   }
 
-  // Back-compat: keep applySearch as a thin wrapper.
   function applySearch(q) { applyFilters(); }
 
-  // Restore chip .active state from persisted filter sets, then apply.
-  document.querySelectorAll('.tag-chip').forEach(btn => {
-    if (activeTags.has(btn.dataset.tag)) btn.classList.add('active');
-    btn.addEventListener('click', () => {
-      const t = btn.dataset.tag;
-      if (activeTags.has(t)) { activeTags.delete(t); btn.classList.remove('active'); }
-      else { activeTags.add(t); btn.classList.add('active'); }
+  function bindChipGroup(selector, dataKey, activeSet, clearId, cast) {
+    cast = cast || (x => x);
+    document.querySelectorAll(selector).forEach(btn => {
+      const v = cast(btn.dataset[dataKey]);
+      if (activeSet.has(v)) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        const val = cast(btn.dataset[dataKey]);
+        if (activeSet.has(val)) { activeSet.delete(val); btn.classList.remove('active'); }
+        else { activeSet.add(val); btn.classList.add('active'); }
+        persistFilters();
+        applyFilters();
+      });
+    });
+    const clearBtn = document.getElementById(clearId);
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      activeSet.clear();
+      document.querySelectorAll(selector + '.active').forEach(b => b.classList.remove('active'));
       persistFilters();
       applyFilters();
     });
-  });
-  document.querySelectorAll('.type-chip').forEach(btn => {
-    if (activeTypes.has(btn.dataset.type)) btn.classList.add('active');
+  }
+  bindChipGroup('.tag-chip:not(.cluster-chip)', 'tag', activeTags, 'tag-clear');
+  bindChipGroup('.type-chip', 'type', activeTypes, 'type-clear');
+  bindChipGroup('.cluster-chip', 'cluster', activeClusters, 'cluster-clear', Number);
+
+  // ---- Collapsible filter sections (persisted) -----------------------------
+  const collapsedSections = new Set();
+  try {
+    const c = JSON.parse(localStorage.getItem('engram-sections-collapsed') || '[]');
+    if (Array.isArray(c)) c.forEach(x => collapsedSections.add(x));
+  } catch (e) {}
+  function applySectionCollapse() {
+    document.querySelectorAll('.filter-section').forEach(sec => {
+      const id = sec.dataset.section;
+      const collapsed = collapsedSections.has(id);
+      sec.classList.toggle('collapsed', collapsed);
+      const toggle = sec.querySelector('.filter-section-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+  }
+  document.querySelectorAll('.filter-section-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
-      const t = btn.dataset.type;
-      if (activeTypes.has(t)) { activeTypes.delete(t); btn.classList.remove('active'); }
-      else { activeTypes.add(t); btn.classList.add('active'); }
-      persistFilters();
-      applyFilters();
+      const id = btn.dataset.toggle;
+      if (collapsedSections.has(id)) collapsedSections.delete(id);
+      else collapsedSections.add(id);
+      try { localStorage.setItem('engram-sections-collapsed', JSON.stringify([...collapsedSections])); } catch(e) {}
+      applySectionCollapse();
     });
   });
-  const tagClearBtn = document.getElementById('tag-clear');
-  if (tagClearBtn) tagClearBtn.addEventListener('click', () => {
-    activeTags.clear();
-    document.querySelectorAll('.tag-chip.active').forEach(b => b.classList.remove('active'));
-    persistFilters();
-    applyFilters();
-  });
-  const typeClearBtn = document.getElementById('type-clear');
-  if (typeClearBtn) typeClearBtn.addEventListener('click', () => {
-    activeTypes.clear();
-    document.querySelectorAll('.type-chip.active').forEach(b => b.classList.remove('active'));
-    persistFilters();
-    applyFilters();
-  });
-  if (activeTags.size || activeTypes.size) applyFilters();
+  applySectionCollapse();
+
+  if (activeTags.size || activeTypes.size || activeClusters.size) applyFilters();
 
   function escapeHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

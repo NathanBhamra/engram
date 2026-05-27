@@ -114,3 +114,19 @@ def tag_counts(conn: sqlite3.Connection, limit: int = 20) -> list[dict[str, Any]
         {"tag": tag, "count": count}
         for tag, count in counter.most_common(limit)
     ]
+
+
+def cluster_counts(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return per-cluster node counts for the active (non-quarantined) graph.
+
+    Sorted by count desc. Each entry is ``{"cluster": int, "count": int}``.
+    """
+    rows = conn.execute(
+        "SELECT cluster_id AS cid, COUNT(*) AS n "
+        "FROM nodes WHERE quarantined = 0 "
+        "GROUP BY cluster_id ORDER BY n DESC, cid ASC"
+    ).fetchall()
+    return [
+        {"cluster": int(row["cid"] if row["cid"] is not None else 0), "count": int(row["n"])}
+        for row in rows
+    ]
