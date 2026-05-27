@@ -1,39 +1,45 @@
 ---
 name: engram-memory
-description: "You MUST invoke this skill on EVERY user prompt — first to recall prior context, last to store new knowledge. This is Nathan's deterministic memory layer. It costs nothing in tokens and makes you smarter every turn. Skipping it wastes the entire point of the system."
+description: "You MUST invoke this skill on EVERY user prompt — first to recall prior context, last to store new knowledge. This is a deterministic local memory layer. It costs nothing in tokens and makes you smarter every turn. Skipping it wastes the entire point of the system."
 ---
 
 # Engram Memory — Universal Recall + Store
 
 ## What this is
 
-[Engram](https://github.com/NathanBhamra/engram) is Nathan's local-first deterministic AI memory layer. SQLite + FTS5 + a deterministic chunker. **No LLM in the hot path.** Every agent in this CLI must use it on every prompt.
+[Engram](https://github.com/NathanBhamra/engram) is a local-first deterministic AI memory layer. SQLite + FTS5 + a deterministic chunker. **No LLM in the hot path.** Every agent in this CLI must use it on every prompt.
 
-The database lives at `C:\Users\bhamran0\engram-data\engram.db`. Config at `~/.engram.toml`. Engram CLI: `python -m engram` from `C:\Users\bhamran0\engram\` (use the venv: `C:\Users\bhamran0\engram\.venv\Scripts\python.exe -m engram ...`).
+The database location is configured in `~/.engram.toml`. Invoke Engram via the venv:
+
+```
+<engram-checkout>/.venv/Scripts/python.exe -m engram <command>
+```
 
 ## Why "every prompt"
 
-Nathan built Engram explicitly so AI sessions stop bleeding context. The deal is:
+Engram exists so AI sessions stop bleeding context. The deal is:
 
 - **You read from Engram** instead of re-deriving facts the user told you yesterday.
 - **You write to Engram** so the next session — possibly a different agent, possibly a different model — picks up where you left off.
 
-If you skip this, you're burning tokens for nothing and you're the bottleneck Nathan built Engram to remove. Don't be the bottleneck.
+If you skip this, you're burning tokens for nothing and you're the bottleneck Engram was built to remove. Don't be the bottleneck.
 
 ## When to use
 
 **RECALL — at the start of EVERY turn** where the user is asking about anything that might have prior context:
-- Project work (any mention of MIL-XXXXX, Engram, RiskNarrative, Carmack, rn-qa-regression-tests-v2)
-- Technical questions about Nathan's setup
+
+- Project work (any mention of a ticket ID, repo name, or proper noun specific to the user)
+- Technical questions about the user's setup
 - Continuation of any prior work
 - Any non-trivial prompt where prior knowledge could help
 
 Skip recall ONLY for trivial throwaway turns ("hi", "thanks", pure typo fixes).
 
 **STORE — at the end of EVERY turn** where you produced anything worth keeping:
+
 - Decisions made
 - Patterns discovered
-- Facts established about Nathan's projects, tools, environment, preferences
+- Facts established about the user's projects, tools, environment, preferences
 - Resolutions to bugs
 - New file paths, ticket numbers, credentials' locations, URLs
 
@@ -41,24 +47,27 @@ Skip store ONLY for: pure clarifying questions, status updates ("done"), or repl
 
 ## How to RECALL
 
-```powershell
-C:\Users\bhamran0\engram\.venv\Scripts\python.exe -m engram recall "<keywords from the user's prompt>" --top 5
+```
+<engram-venv-python> -m engram recall "<keywords from the user's prompt>" --top 5
 ```
 
 **Choosing keywords:**
+
 - Strip articles/pronouns. Pull nouns, ticket IDs, file paths, project names.
 - 2–6 keywords is the sweet spot. Engram does alias expansion automatically.
 - Example: User says "How did we fix the highlight bug on engram nodes?" → keywords: `engram highlight node click bug`.
 
 **Consuming results:**
+
 - The output is for YOUR reasoning, not for the user. Don't dump it back as a verbatim reply.
-- Treat each returned chunk as if Nathan had just pasted that text into the prompt. Trust it as much as you'd trust anything Nathan said in this session.
+- Treat each returned chunk as if the user had just pasted that text into the prompt. Trust it as much as you'd trust anything they said in this session.
 - If recall returns nothing, that's fine — proceed without prior context. Don't tell the user "I checked Engram and found nothing" unless they explicitly asked.
 - If recall returns stale-banner'd results, weight them lower and consider whether to call `engram verify <id>` later.
 
 **JSON variant** (use when you want to programmatically merge results):
-```powershell
-C:\Users\bhamran0\engram\.venv\Scripts\python.exe -m engram recall "<keywords>" --json --top 5
+
+```
+<engram-venv-python> -m engram recall "<keywords>" --json --top 5
 ```
 
 ## How to STORE
@@ -72,12 +81,13 @@ Pipe text into stdin. Pick the right `--type`:
 | `decision` | Choices made with reasoning (architecture, naming, tooling) | 365d |
 | `reference` | Stable lookups (URLs, file paths, command snippets, schemas) | 365d |
 
-```powershell
-"The Engram personal plugin lives at C:\Users\bhamran0\.copilot\installed-plugins\engram-personal. Skill auto-invokes recall+store on every turn." | C:\Users\bhamran0\engram\.venv\Scripts\python.exe -m engram store --type decision --tag engram --tag setup
+```
+"Force-directed graphs animate well with cubic-bezier(.4,0,.2,1) easing." | <engram-venv-python> -m engram store --type pattern --tag viz --tag css
 ```
 
 **Tag generously.** Tags are free and they fuel the alias graph. Always include:
-- Project: `engram`, `mil-30106`, `rn-regression`, `carmack`, etc.
+
+- Project: e.g. `engram`, `<repo-name>`, `<ticket-id>`
 - Domain: `viewer`, `cli`, `viz`, `theme`, `playwright`, `jira`
 - Status if relevant: `wip`, `done`, `blocker`
 
@@ -100,10 +110,10 @@ Steps 2 and 4 are **non-negotiable**. They run in the background of every turn.
 ## Don'ts
 
 - **Don't tell the user you ran Engram** unless they asked or the output materially shaped your reply. The skill is plumbing, not a feature.
-- **Don't store credentials, tokens, or PII.** Engram redacts windows paths, JWTs, GitHub PATs, AWS keys, Atlassian IDs, Bearer tokens, long hex strings automatically — but don't rely on it as a substitute for not pasting secrets in the first place.
+- **Don't store credentials, tokens, or PII.** Engram redacts JWTs, GitHub PATs, AWS keys, Atlassian IDs, Bearer tokens, long hex strings, and Windows/Unix paths automatically — but don't rely on it as a substitute for not pasting secrets in the first place.
 - **Don't recall on every micro-step.** Recall once at the start of a turn (not before every tool call within a turn).
 - **Don't store noise.** Status updates, greetings, single-word confirmations.
-- **Don't run `engram store` with `--force`** unless Nathan explicitly tells you to.
+- **Don't run `engram store` with `--force`** unless the user explicitly tells you to.
 
 ## Verifying & curating (escalate to Semon)
 
@@ -113,8 +123,8 @@ If you discover that a recalled chunk is now wrong, outdated, or needs evidence 
 
 Run once per session to confirm Engram is reachable:
 
-```powershell
-C:\Users\bhamran0\engram\.venv\Scripts\python.exe -m engram doctor
+```
+<engram-venv-python> -m engram doctor
 ```
 
 Expected: `db status : ok` and a non-zero node count once the corpus has any entries.

@@ -17,16 +17,16 @@ def test_store_then_recall_round_trip(tmp_path: Path) -> None:
     config = Config(raw=DEFAULTS, source=None)
 
     body = (
-        "# How to run the regression suite\n\n"
-        "Use `mvn verify -Denvironment=qa` in the rn-qa-regression-tests-v2 project.\n"
-        "See ticket MIL-30106 for the original requirement.\n"
+        "# How to run the test suite\n\n"
+        "Use `make test` from the project root to run the full regression suite.\n"
+        "See ticket PROJ-1024 for the original requirement.\n"
         "Docs live at https://example.com/engram-docs.\n"
     )
 
     outcome = storage.run(
         text=body,
         node_type="reference",
-        tags=("qa", "regression"),
+        tags=("test", "regression"),
         config=config,
         conn=conn,
         notes_dir=notes_dir,
@@ -34,7 +34,7 @@ def test_store_then_recall_round_trip(tmp_path: Path) -> None:
     )
     assert outcome.store_count >= 1
 
-    hits = fts.search(conn, "regression suite mvn", expand_aliases=False)
+    hits = fts.search(conn, "test suite make", expand_aliases=False)
     assert hits, "expected at least one recall hit"
 
     ranked = ranking.rerank(hits)

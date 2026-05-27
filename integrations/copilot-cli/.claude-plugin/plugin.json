@@ -1,6 +1,6 @@
 {
   "name": "engram-personal",
-  "description": "Nathan's personal Engram memory layer — universal recall+store skill that runs on every prompt, plus Semon the archivist agent for explicit knowledge-tree management.",
+  "description": "Engram memory layer for Copilot CLI — universal recall+store skill that runs on every prompt, plus Semon the archivist agent for explicit knowledge-tree management.",
   "version": "1.0.0",
   "author": {
     "name": "Nathan Bhamra",

@@ -1,20 +1,14 @@
 # Engram × GitHub Copilot CLI
 
-A Copilot CLI plugin that ships two pieces:
+A Copilot CLI plugin scaffold that ships two pieces:
 
 - **`engram-memory` skill** — auto-invoked on every prompt to recall prior
   context and store new knowledge. The autonomic loop.
 - **`Semon` agent** — explicit archivist for curated memory work (verify,
   list-stale, rebuild, seed corpus, view graph).
 
-The reference implementation of this plugin lives in Nathan's personal
-configuration at:
-
-```
-%USERPROFILE%\.copilot\installed-plugins\engram-personal\
-```
-
-If you want to use it yourself, the layout is:
+Drop the contents of this directory into your Copilot CLI plugins folder to
+wire any Copilot-CLI agent into Engram. The layout is:
 
 ```
 engram-personal/
@@ -66,8 +60,9 @@ Both the skill and the agent shell out to:
 <engram-venv-python> -m engram <command>
 ```
 
-…which is why the `~/.engram.toml` config and the personal data dir are the
-only state Copilot CLI needs to share with Engram. Nothing else couples them.
+…which is why the `~/.engram.toml` config and the Engram data directory are
+the only state Copilot CLI needs to share with Engram. Nothing else couples
+them.
 
 ## See also
 

@@ -18,7 +18,7 @@ def test_url_signal_accepted() -> None:
 
 
 def test_ticket_signal_accepted() -> None:
-    report = check("Bug MIL-12345 reproduces only on Friday afternoons sometimes.")
+    report = check("Bug PROJ-12345 reproduces only on Friday afternoons sometimes.")
     assert report.verdict is Verdict.STORE
     assert report.signals["ticket"] >= 1
 

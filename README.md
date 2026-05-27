@@ -41,10 +41,10 @@ all dev dependencies, vendors the viewer JS, and applies the initial schema.
 
 ```powershell
 # Store a note from stdin
-"The QA section tag for Activity Investigation is ACTIVITY_INVESTIGATION." | engram store --type fact --tag jira --tag qa
+"Force-directed graphs animate well with cubic-bezier(.4,0,.2,1) easing." | engram store --type pattern --tag viz --tag css
 
 # Recall it later
-engram recall "activity investigation section tag"
+engram recall "graph easing curve"
 
 # See your knowledge graph
 engram view --open
