@@ -88,7 +88,26 @@ is written to the audit log so the operator can review the filter weekly.
 echo "<content>" | engram autostore --type pattern --tag <project> --tag <domain> --session <session-id>
 ```
 
-Pick the right `--type`:
+### One fact per call — non-negotiable
+
+Each `autostore` call must contain **one topical idea**. The chunker splits
+on markdown headers and character count; it does **not** detect topic
+boundaries inside a paragraph. If you cram two unrelated facts into one
+paragraph, they will be stored as one node — and a future recall on
+*either* topic will surface a chunk that misleadingly conflates them.
+
+| ❌ Bad — two ideas welded together | ✅ Good — two separate calls |
+|---|---|
+| `"Engram v0.5.1 ships a forget command. Ticket PROJ-9001 covers an unrelated viewer refactor."` | Call 1: `"Engram v0.5.1 ships a forget command for single-node curation."` <br> Call 2: `"PROJ-9001 covers the viewer refactor; unrelated to Engram core."` |
+
+Rule of thumb: if the sentences don't share at least one anchor (project,
+ticket, file, URL, person), they belong in separate calls. **The cost of
+two `autostore` calls is identical to one — the filter runs per call.**
+
+When in doubt, split. The reverse mistake (over-splitting) is recoverable
+via the alias graph; over-merging silently poisons future recall.
+
+### Picking a type
 
 | Type | Use for | TTL |
 |---|---|---|
@@ -149,6 +168,24 @@ Steps 2 and 4 are **non-negotiable**. They run in the background of every turn.
 ## Verifying & curating (escalate to Semon)
 
 If you discover that a recalled chunk is now wrong, outdated, or needs evidence attached — don't try to fix it inline. Note the node ID and surface to Semon (the Engram archivist agent). He handles `engram verify`, `engram list-stale`, `engram rebuild`, and graph viewing.
+
+### Removing a single bad node — `engram forget <id>`
+
+When a node is clearly wrong (operator paste error, mis-attributed
+ticket, polluting smoke-test artefact) and rebuilding the whole index is
+overkill, use:
+
+```
+engram forget <node-id> --reason "<why>"           # confirms before deleting
+engram forget <node-id> --yes --reason "<why>"     # non-interactive
+engram forget <node-id> --dry-run                  # preview only
+```
+
+The deletion cascades to edges and removes the on-disk note. Every forget
+is audit-logged (`op=node_forget`) with the node title, tags, and reason
+so curation actions are themselves traceable. Use this sparingly — the
+right answer is usually to let the next `recall` weight stale evidence
+down, not to delete it.
 
 ## Health check
 

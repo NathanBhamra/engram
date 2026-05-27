@@ -42,6 +42,7 @@ from engram.commands import (  # noqa: E402  (ordered after click group definiti
     audit,
     autostore,
     doctor,
+    forget,
     list_stale,
     rebuild,
     recall,
@@ -61,6 +62,7 @@ main.add_command(view.view)
 main.add_command(audit.audit)
 main.add_command(doctor.doctor)
 main.add_command(usage.usage)
+main.add_command(forget.forget)
 
 
 if __name__ == "__main__":

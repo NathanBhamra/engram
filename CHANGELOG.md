@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-27
+
+### Added
+
+- **`engram forget <id>` command** — single-node curation primitive.
+  Deletes one node by ID, cascades edges, removes the on-disk note, and
+  audit-logs the action as `op=node_forget` with the title, tags, and
+  optional `--reason`. Supports `--dry-run` for preview and `--yes` to
+  skip the confirmation prompt. Fills the gap between "do nothing" and
+  the nuclear `engram rebuild` for when a single node is wrong (operator
+  paste error, mis-attributed ticket, polluting smoke-test artefact).
+  4 new integration tests.
+
+### Changed
+
+- **SKILL.md (`engram-memory`)** — new **"One fact per call"** rule,
+  prominently placed in the storage section. The chunker does not detect
+  topic boundaries inside a paragraph; agents must split unrelated facts
+  into separate `autostore` calls or risk poisoning future recall. Adds
+  a `forget` section under "Verifying & curating".
+
+### Notes
+
+- **Trigger** — v0.5.0 dogfooding surfaced one polluting node where an
+  Engram release fact was glued to an unrelated Jira ticket reference in
+  a single smoke-test paste. The chunker behaved correctly (one
+  paragraph → one chunk) but the input violated the implicit one-idea
+  contract. The fix is discipline at the call site plus the `forget`
+  primitive to recover when discipline slips — *not* a heuristic
+  topic-segmenter in the chunker (rejected as brittle).
+
 ## [0.5.0] - 2026-05-27
 
 ### Added
@@ -146,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback). Total now 61 passing.
 - **scipy** added to dependencies (required by NetworkX's PageRank).
 
-[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/NathanBhamra/engram/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/NathanBhamra/engram/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/NathanBhamra/engram/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/NathanBhamra/engram/compare/v0.3.0...v0.4.0
