@@ -168,6 +168,20 @@
   .brand { display: flex; align-items: center; gap: 10px; margin: 2px 0 18px; }
   .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
   .brand-name { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+  .brand-mode-link {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-2);
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .brand-mode-link:hover { color: var(--fg); border-color: var(--hairline-strong); background: var(--surface); }
   .section-label {
     font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.08em;
@@ -528,6 +542,7 @@
       <div class="brand">
         <span class="brand-dot"></span>
         <span class="brand-name">Engram</span>
+        <a class="brand-mode-link" href="viz-3d.html" title="Open 3D viewer">3D</a>
       </div>
       <div style="display:flex; gap:6px;">
         <button class="theme-toggle" id="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
@@ -599,7 +614,7 @@
       <div class="filter-section-body">
         <div class="tag-chips" id="cluster-chips">
           {% for entry in cluster_counts %}
-          <button type="button" class="tag-chip cluster-chip" data-cluster="{{ entry.cluster }}"><span class="cluster-swatch" data-cluster="{{ entry.cluster }}"></span>cluster {{ entry.cluster }}<span class="count">{{ entry.count }}</span></button>
+          <button type="button" class="tag-chip cluster-chip" data-cluster="{{ entry.cluster }}"><span class="cluster-swatch" data-cluster="{{ entry.cluster }}"></span>{{ entry.label }}<span class="count">{{ entry.count }}</span></button>
           {% endfor %}
         </div>
       </div>
@@ -673,6 +688,7 @@
   })();
   let NODE_COLOURS = PALETTES[currentMode].nodes;
   const data = {{ graph_json | safe }};
+  const CLUSTER_LABELS = {{ cluster_labels_json | safe }};
 
   // Wait for Inter to finish loading before vis-network measures node sizes,
   // otherwise the cards size to the fallback font and text drifts off-centre
@@ -925,7 +941,7 @@
       bodyHtml +
       `<div class="meta-grid">` +
         `<div class="meta-key">type</div><div class="meta-val">${e.type}</div>` +
-        `<div class="meta-key">cluster</div><div class="meta-val">${e.cluster ?? '–'}</div>` +
+        `<div class="meta-key">cluster</div><div class="meta-val">${e.cluster !== null && e.cluster !== undefined ? (CLUSTER_LABELS[e.cluster] || `cluster ${e.cluster}`) : '–'}</div>` +
         `<div class="meta-key">degree</div><div class="meta-val">${e.degree}</div>` +
         `<div class="meta-key">pagerank</div><div class="meta-val">${e.pagerank.toFixed(4)}</div>` +
         `<div class="meta-key">ttl</div><div class="meta-val">${e.ttl_days} days</div>` +
