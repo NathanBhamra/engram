@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-27
+
+### Added
+
+- **`engram autostore` command** — the per-turn auto-store hook. Pipes
+  content through the worthiness filter, audit-logs the decision, stores
+  if worthy, and **always exits 0** so wrapper scripts and agent loops can
+  pipe through unconditionally. Quiet by default; `--verbose` or `--json`
+  surface the verdict. Eliminates the manual `engram store ...` ceremony
+  that was the friction point preventing real dogfooding.
+- **Reject-side audit logging** — `audit_log` now also records every
+  `store_reject` with the full signal breakdown (`signals`, `word_count`,
+  `reason`, `tags`, `node_type`). This is the data Week 2 will use to tune
+  `min_signals` / `min_word_count`.
+- **`engram audit --pretty`** — human-readable output for weekly review;
+  one line per entry with verdict, signal kinds, tags, and title plus an
+  indented reason. `--json` emits one parseable object per line for scripted
+  analysis.
+- **`engram-autostore.cmd` / `.ps1` wrappers** in `~/.copilot/bin/` so any
+  shell or agent can pipe through `engram-autostore <flags>` without
+  knowing the venv path.
+
+### Changed
+
+- **`store_log` payload schema** — both successful stores and rejections
+  now include `title`, `reason`, `signals`, `word_count`, `tags`, and
+  `node_type`. The successful-store entry additionally carries `id`,
+  `redactions`, and `forced`. Existing consumers that read only `id` /
+  `session` continue to work.
+- **SKILL.md (`engram-memory`)** — rewritten to make `autostore` the
+  default storage call for agents; manual `engram store` reserved for
+  interactive debug. Adds a weekly-review section pointing at the new
+  `audit --pretty` and `engram usage` flow.
+
+### Notes
+
+- **Week 2 of the auto-store rollout** is the next milestone: review one
+  week of `audit_log` entries with `engram audit --op store_reject --pretty`,
+  tune the worthiness signals, ship as 0.5.1 or 0.6.0 depending on scope.
+- **No CLI hook into Copilot session lifecycle yet** — agents call
+  `autostore` themselves per the SKILL. A native hook would supersede this
+  if/when the CLI exposes one.
+
 ## [0.4.1] - 2026-05-27
 
 ### Added
@@ -103,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback). Total now 61 passing.
 - **scipy** added to dependencies (required by NetworkX's PageRank).
 
-[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/NathanBhamra/engram/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/NathanBhamra/engram/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/NathanBhamra/engram/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/NathanBhamra/engram/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/NathanBhamra/engram/releases/tag/v0.3.0
